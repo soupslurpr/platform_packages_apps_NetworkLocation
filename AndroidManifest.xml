@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="app.grapheneos.networklocation"
+    android:sharedUserId="android.uid.system">
+
+    <uses-permission android:name="android.permission.INSTALL_LOCATION_PROVIDER" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.NETWORK_SETTINGS" />
+    <uses-permission android:name="android.permission.UPDATE_DEVICE_STATS" />
+
+    <application
+        android:label="@string/app_name">
+        <uses-library android:name="com.android.location.provider" />
+        <service
+            android:name="app.grapheneos.networklocation.NetworkLocationService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.location.service.v3.NetworkLocationProvider" />
+            </intent-filter>
+        </service>
+
+    </application>
+
+</manifest>

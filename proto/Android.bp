@@ -1,0 +1,10 @@
+java_library {
+    name: "network-location-proto",
+    srcs: ["*.proto"],
+    sdk_version: "system_current",
+    proto: {
+        type: "lite",
+        canonical_path_from_root: false,
+    },
+    min_sdk_version: "34",
+}
