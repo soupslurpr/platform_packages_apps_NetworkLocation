@@ -221,28 +221,25 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                 }
             }
 
-            // TODO: move setting the location outta the loop and check that
-            //  bestAvailableAccessPoint isn't null
-            location.latitude =
-                firstMatchedAccessPoint.second.positioningInfo.latitude.toDouble() * (10).toDouble()
-                    .pow(-8)
-            location.longitude =
-                firstMatchedAccessPoint.second.positioningInfo.longitude.toDouble() * (10).toDouble()
-                    .pow(-8)
+            if (bestAvailableAccessPoint != null) {
+                location.latitude =
+                    bestAvailableAccessPoint!!.second.positioningInfo.latitude.toDouble() * 10.toDouble()
+                        .pow(-8)
+                location.longitude =
+                    bestAvailableAccessPoint!!.second.positioningInfo.longitude.toDouble() * 10.toDouble()
+                        .pow(-8)
 
-            // TODO: verify that this formula is correct
-            // estimate distance (in meters) from access point using signal strength
-            val distanceFromAccessPoint =
-                (10).toDouble().pow((-30 - (firstMatchedAccessPoint.first.level)) / 30)
+                // TODO: verify that this formula is correct
+                // estimate distance (in meters) from access point using signal strength
+                val distanceFromAccessPoint =
+                    10.toDouble().pow((-30 - (bestAvailableAccessPoint!!.first.level)) / 30)
 
-            /// should be at the 68th percentile confidence level
-            val accuracy =
-                (firstMatchedAccessPoint.second.positioningInfo.accuracy.toFloat() * 0.68f) + distanceFromAccessPoint.toFloat()
+                // should be at the 68th percentile confidence level
+                val accuracy =
+                    (bestAvailableAccessPoint!!.second.positioningInfo.accuracy.toFloat() * 0.68f) + distanceFromAccessPoint.toFloat()
 
-            location.verticalAccuracyMeters
-            location.accuracy = accuracy
-            //
-
+                location.accuracy = accuracy
+            }
 
             if (isBatching) {
                 batchedLocations += location
@@ -251,9 +248,11 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                     expectedNextBatchUpdateElapsedRealtimeNanos += mRequest.maxUpdateDelayMillis.toDuration(
                         DurationUnit.MILLISECONDS
                     ).inWholeNanoseconds
-                    reportLocations(batchedLocations)
+                    if (location.isComplete) {
+                        reportLocations(batchedLocations)
+                    }
                 }
-            } else {
+            } else if (location.isComplete) {
                 reportLocation(location)
             }
 
