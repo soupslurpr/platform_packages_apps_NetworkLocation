@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="app.grapheneos.networklocation"
-    android:sharedUserId="android.uid.system">
+    package="app.grapheneos.networklocation">
 
     <uses-permission android:name="android.permission.INSTALL_LOCATION_PROVIDER" />
     <uses-permission android:name="android.permission.INTERNET" />
