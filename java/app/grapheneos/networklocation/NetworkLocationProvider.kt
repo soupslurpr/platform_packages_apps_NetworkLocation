@@ -303,9 +303,6 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
     }
 
     override fun onSetRequest(request: ProviderRequest) {
-        // TODO: remove debug println
-        println("CALLED onSetRequest! request: $request")
-
         stop()
         mRequest = request
 
