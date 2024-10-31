@@ -134,18 +134,11 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                     val url = URL("https://gs-loc.apple.com/clls/wloc")
                     val connection = url.openConnection() as HttpsURLConnection
 
-                    val accessPointList = listOf(
+                    val locationRequest = AppleWps.Body.newBuilder().addAccessPoints(
                         AppleWps.AccessPoint.newBuilder()
                             .setBssid(accessPointScanResult.BSSID)
                             .build()
-                    )
-
-                    val locationRequest =
-                        AppleWps.Body.newBuilder()
-                            .addAllAccessPoints(accessPointList)
-                            .setUnknown1(0)
-                            .setNumberOfResults(accessPointList.size)
-                            .build()
+                    ).setUnknown1(0).setNumberOfResults(1).build()
 
                     try {
                         connection.requestMethod = "POST"
@@ -191,23 +184,25 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                                 val response = AppleWps.Body.parseFrom(inputStream)
 
                                 val nullLatitudeOrLongitude = -18000000000
-
-                                val matchedAccessPoints = results.mapNotNull { accessPoint ->
-                                    val foundAccessPoint =
-                                        response.accessPointsList.find { responseAccessPoint ->
-                                            (responseAccessPoint.bssid == accessPoint.BSSID) && (responseAccessPoint.positioningInfo.latitude != nullLatitudeOrLongitude) && (responseAccessPoint.positioningInfo.longitude != nullLatitudeOrLongitude)
+                                val matchedAccessPoint =
+                                    response.accessPointsList.firstOrNull().let {
+                                        return@let if ((it != null) && (it.bssid == accessPointScanResult.BSSID) && (it.positioningInfo.latitude != nullLatitudeOrLongitude) && (it.positioningInfo.longitude != nullLatitudeOrLongitude)) {
+                                            it
+                                        } else {
+                                            null
                                         }
-                                    return@mapNotNull if (foundAccessPoint != null) {
-                                        Pair(accessPoint, foundAccessPoint)
-                                    } else {
-                                        null
                                     }
-                                }.sortedByDescending {
-                                    it.first.level
-                                }
 
-                                if (matchedAccessPoints.isNotEmpty()) {
-                                    bestAvailableAccessPoint = matchedAccessPoints[0]
+                                if (matchedAccessPoint != null) {
+                                    previousKnownAccessPoints.add(matchedAccessPoint)
+                                    bestAvailableAccessPoint =
+                                        Pair(accessPointScanResult, matchedAccessPoint)
+                                } else {
+                                    previousUnknownAccessPoints.add(
+                                        AppleWps.AccessPoint.newBuilder()
+                                            .setBssid(accessPointScanResult.BSSID)
+                                            .build()
+                                    )
                                 }
                             }
                         } else {
