@@ -230,10 +230,8 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                     10.toDouble().pow((-30 - (bestAvailableAccessPoint!!.first.level)) / 30)
 
                 // should be at the 68th percentile confidence level
-                val accuracy =
+                location.accuracy =
                     (bestAvailableAccessPoint!!.second.positioningInfo.accuracy.toFloat() * 0.68f) + distanceFromAccessPoint.toFloat()
-
-                location.accuracy = accuracy
             }
 
             if (isBatching) {
