@@ -28,7 +28,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 /**
@@ -90,9 +89,6 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
 
             val results = wifiManager.scanResults
             val location = Location(LocationManager.NETWORK_PROVIDER)
-
-            location.time = System.currentTimeMillis()
-            location.elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
 
             results.sortByDescending { it.level }
 
@@ -217,6 +213,11 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
             }
 
             if (bestAvailableAccessPoint != null) {
+                location.elapsedRealtimeNanos =
+                    bestAvailableAccessPoint!!.first.timestamp.toDuration(DurationUnit.MICROSECONDS).inWholeNanoseconds
+                location.time =
+                    (SystemClock.currentTimeMicro().toDuration(DurationUnit.MICROSECONDS).inWholeNanoseconds - SystemClock.elapsedRealtimeNanos()) + location.elapsedRealtimeNanos
+
                 location.latitude =
                     bestAvailableAccessPoint!!.second.positioningInfo.latitude.toDouble() * 10.toDouble()
                         .pow(-8)
