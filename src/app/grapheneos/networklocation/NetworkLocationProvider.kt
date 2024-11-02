@@ -216,7 +216,10 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                 location.elapsedRealtimeNanos =
                     bestAvailableAccessPoint!!.first.timestamp.toDuration(DurationUnit.MICROSECONDS).inWholeNanoseconds
                 location.time =
-                    (SystemClock.currentTimeMicro().toDuration(DurationUnit.MICROSECONDS).inWholeNanoseconds - SystemClock.elapsedRealtimeNanos()) + location.elapsedRealtimeNanos
+                    (System.currentTimeMillis() - SystemClock.elapsedRealtimeNanos()
+                        .toDuration(DurationUnit.NANOSECONDS).inWholeMilliseconds) + location.elapsedRealtimeNanos.toDuration(
+                        DurationUnit.NANOSECONDS
+                    ).inWholeMilliseconds
 
                 location.latitude =
                     bestAvailableAccessPoint!!.second.positioningInfo.latitude.toDouble() * 10.toDouble()
