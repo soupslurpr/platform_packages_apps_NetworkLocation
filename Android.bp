@@ -1,6 +1,6 @@
 android_app {
     name: "NetworkLocation",
-    srcs: ["java/**/*.kt", "java/**/*.java"],
+    srcs: ["src/**/*.kt", "src/**/*.java"],
     resource_dirs: ["res"],
     manifest: "AndroidManifest.xml",
 
