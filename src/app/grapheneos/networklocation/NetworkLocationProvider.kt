@@ -36,15 +36,6 @@ import kotlinx.coroutines.launch
 class NetworkLocationProvider(private val context: Context) : LocationProviderBase(
     context, TAG, PROPERTIES
 ) {
-    companion object {
-        private const val TAG: String = "NetworkLocationProvider"
-        private val PROPERTIES: ProviderProperties =
-            ProviderProperties.Builder()
-                .setHasNetworkRequirement(true)
-                .setAccuracy(ProviderProperties.ACCURACY_FINE)
-                .build()
-    }
-
     // We are above Android N (24)
     @SuppressLint("WifiManagerPotentialLeak")
     private val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
@@ -332,6 +323,14 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
     override fun onSendExtraCommand(command: String, extras: Bundle?) {
     }
 
+    companion object {
+        private const val TAG: String = "NetworkLocationProvider"
+        private val PROPERTIES: ProviderProperties =
+            ProviderProperties.Builder()
+                .setHasNetworkRequirement(true)
+                .setAccuracy(ProviderProperties.ACCURACY_FINE)
+                .build()
+    }
 }
 
 fun Short.toBeBytes(): ByteArray {
