@@ -219,14 +219,23 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                     bestAvailableAccessPoint!!.second.positioningInfo.longitude.toDouble() * 10.toDouble()
                         .pow(-8)
 
-                // TODO: verify that this formula is correct
-                // estimate distance (in meters) from access point using signal strength
-                val distanceFromAccessPoint =
-                    10.toDouble().pow((-30 - (bestAvailableAccessPoint!!.first.level)) / 30)
+                // estimate distance in meters from access point using the Log-Distance Path Loss Model
+                val distanceFromAccessPoint = run {
+                    val rssi = bestAvailableAccessPoint!!.first.level
+                    // assume it's 30
+                    val transmittedPower = 30f
+                    val pathLoss = transmittedPower - rssi
+                    val referenceDistance = 1f
+                    // assume RSSI at reference distance is -30
+                    val pathLossAtReferenceDistance = transmittedPower - (-30)
+                    val pathLossExponent = 3f
+
+                    referenceDistance * 10f.pow((pathLoss - pathLossAtReferenceDistance) / (10f * pathLossExponent))
+                }
 
                 // should be at the 68th percentile confidence level
                 location.accuracy =
-                    (bestAvailableAccessPoint!!.second.positioningInfo.accuracy.toFloat() * 0.68f) + distanceFromAccessPoint.toFloat()
+                    (bestAvailableAccessPoint!!.second.positioningInfo.accuracy.toFloat() * 0.68f) + distanceFromAccessPoint
             }
 
             if (isBatching) {
