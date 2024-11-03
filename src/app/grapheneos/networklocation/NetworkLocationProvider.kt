@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.location.CountryDetector
 import android.location.Location
 import android.location.LocationManager
 import android.location.provider.LocationProviderBase
@@ -16,11 +15,7 @@ import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.os.SystemClock
 import app.grapheneos.networklocation.apple_wps.AppleWps
-import java.io.ByteArrayOutputStream
-import java.io.DataOutputStream
 import java.net.URL
-import java.util.Locale
-import java.util.TimeZone
 import javax.net.ssl.HttpsURLConnection
 import kotlin.math.pow
 import kotlin.properties.Delegates
@@ -124,12 +119,6 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                     val url = URL("https://gs-loc.apple.com/clls/wloc")
                     val connection = url.openConnection() as HttpsURLConnection
 
-                    val locationRequest = AppleWps.Body.newBuilder().addAccessPoints(
-                        AppleWps.AccessPoint.newBuilder()
-                            .setBssid(accessPointScanResult.BSSID)
-                            .build()
-                    ).setUnknown1(0).setNumberOfResults(1).build()
-
                     try {
                         connection.requestMethod = "POST"
                         connection.setRequestProperty(
@@ -137,26 +126,26 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                         )
                         connection.doOutput = true
 
-                        val message = ByteArrayOutputStream()
-                        val dataOutputStream = DataOutputStream(message)
-                        locationRequest.writeDelimitedTo(dataOutputStream)
-                        dataOutputStream.close()
-
                         connection.outputStream.use { outputStream ->
-                            var request = byteArrayOf()
+                            var header = byteArrayOf()
 
-                            request += 1.toShort().toBeBytes()
-                            request += 0.toShort().toBeBytes()
-                            request += 0.toShort().toBeBytes()
-                            request += 0.toShort().toBeBytes()
-                            request += 0.toShort().toBeBytes()
-                            request += 1.toShort().toBeBytes()
-                            request += 0.toShort().toBeBytes()
-                            request += 0.toByte()
+                            header += 1.toShort().toBeBytes()
+                            header += 0.toShort().toBeBytes()
+                            header += 0.toShort().toBeBytes()
+                            header += 0.toShort().toBeBytes()
+                            header += 0.toShort().toBeBytes()
+                            header += 1.toShort().toBeBytes()
+                            header += 0.toShort().toBeBytes()
+                            header += 0.toByte()
 
-                            request += message.toByteArray()
+                            val body = AppleWps.Body.newBuilder().addAccessPoints(
+                                AppleWps.AccessPoint.newBuilder()
+                                    .setBssid(accessPointScanResult.BSSID)
+                                    .build()
+                            ).build()
 
-                            outputStream.write(request)
+                            outputStream.write(header)
+                            body.writeDelimitedTo(outputStream)
                         }
 
                         val responseCode = connection.responseCode
