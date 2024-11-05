@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.ext.settings.NetworkLocationSettings
 import android.location.Location
 import android.location.LocationManager
 import android.location.provider.LocationProviderBase
@@ -14,6 +15,8 @@ import android.net.wifi.ScanResult
 import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.os.SystemClock
+import android.provider.Settings
+import android.util.Log
 import app.grapheneos.networklocation.apple_wps.AppleWps
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
@@ -34,6 +37,14 @@ import kotlinx.coroutines.launch
 class NetworkLocationProvider(private val context: Context) : LocationProviderBase(
     context, TAG, PROPERTIES
 ) {
+    private val networkLocationServerSetting: Int
+        get() {
+            return Settings.Global.getInt(
+                context.contentResolver,
+                Settings.Global.NETWORK_LOCATION
+            )
+        }
+
     // We are above Android N (24)
     @SuppressLint("WifiManagerPotentialLeak")
     private val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
@@ -61,8 +72,7 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
     private val batchedLocations: MutableList<Location> = mutableListOf()
 
     override fun isAllowed(): Boolean {
-        // TODO: also check if the provider is enabled in settings
-        return wifiManager.isWifiEnabled || wifiManager.isScanAlwaysAvailable
+        return (networkLocationServerSetting != NetworkLocationSettings.NETWORK_LOCATION_DISABLED) && (wifiManager.isWifiEnabled || wifiManager.isScanAlwaysAvailable)
     }
 
     fun scanFinished(isSuccessful: Boolean) {
@@ -114,9 +124,21 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                 }
 
                 try {
-                    // TODO: use settings value to determine whether to connect through GrapheneOS'
-                    //  proxy or directly to Apple's server
-                    val url = URL("https://gs-loc.apple.com/clls/wloc")
+                    val url = URL(
+                        when (networkLocationServerSetting) {
+                            NetworkLocationSettings.NETWORK_LOCATION_SERVER_GRAPHENEOS_PROXY -> {
+                                "https://gs-loc.apple.grapheneos.org/clls/wloc"
+                            }
+
+                            NetworkLocationSettings.NETWORK_LOCATION_SERVER_APPLE -> {
+                                "https://gs-loc.apple.com/clls/wloc"
+                            }
+
+                            else -> {
+                                throw RuntimeException("Server is not selected!")
+                            }
+                        }
+                    )
                     val connection = url.openConnection() as HttpsURLConnection
 
                     try {
@@ -183,6 +205,7 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                         connection.disconnect()
                     }
                 } catch (e: Exception) {
+                    Log.e(TAG, "Error requesting access point info", e)
                     delay(1000)
                 }
             }
