@@ -59,8 +59,8 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
             scanFinished(isSuccessful)
         }
     }
-    private val previousKnownAccessPoints: MutableSet<AppleWps.AccessPoint> = mutableSetOf()
-    private val previousUnknownAccessPoints: MutableSet<AppleWps.AccessPoint> = mutableSetOf()
+    private val previousScanKnownAccessPoints: MutableSet<AppleWps.AccessPoint> = mutableSetOf()
+    private val previousScanUnknownAccessPoints: MutableSet<AppleWps.AccessPoint> = mutableSetOf()
     private val isBatching: Boolean
         get() {
             return if (mRequest.isActive) {
@@ -91,19 +91,19 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
 
             results.sortByDescending { it.level }
 
-            previousKnownAccessPoints.retainAll { knownAccessPoint ->
+            previousScanKnownAccessPoints.retainAll { knownAccessPoint ->
                 results.any { result ->
                     result.BSSID == knownAccessPoint.bssid
                 }
             }
-            previousUnknownAccessPoints.retainAll { unknownAccessPoint ->
+            previousScanUnknownAccessPoints.retainAll { unknownAccessPoint ->
                 results.any { result ->
                     result.BSSID == unknownAccessPoint.bssid
                 }
             }
 
             results.removeAll { result ->
-                previousUnknownAccessPoints.any { unknownAccessPoints ->
+                previousScanUnknownAccessPoints.any { unknownAccessPoints ->
                     unknownAccessPoints.bssid == result.BSSID
                 }
             }
@@ -112,7 +112,7 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
 
             for (accessPointScanResult in results) {
                 run {
-                    val foundAccessPoint = previousKnownAccessPoints.find { knownAccessPoint ->
+                    val foundAccessPoint = previousScanKnownAccessPoints.find { knownAccessPoint ->
                         knownAccessPoint.bssid == accessPointScanResult.BSSID
                     }
                     if (foundAccessPoint != null) {
@@ -187,11 +187,11 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                                     }
 
                                 if (matchedAccessPoint != null) {
-                                    previousKnownAccessPoints.add(matchedAccessPoint)
+                                    previousScanKnownAccessPoints.add(matchedAccessPoint)
                                     bestAvailableAccessPoint =
                                         Pair(accessPointScanResult, matchedAccessPoint)
                                 } else {
-                                    previousUnknownAccessPoints.add(
+                                    previousScanUnknownAccessPoints.add(
                                         AppleWps.AccessPoint.newBuilder()
                                             .setBssid(accessPointScanResult.BSSID)
                                             .build()
@@ -293,8 +293,8 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
         mRequest = ProviderRequest.EMPTY_REQUEST
         reportLocationJob?.cancel()
         reportLocationJob = null
-        previousKnownAccessPoints.clear()
-        previousUnknownAccessPoints.clear()
+        previousScanKnownAccessPoints.clear()
+        previousScanUnknownAccessPoints.clear()
 
         try {
             context.unregisterReceiver(wifiScanReceiver)
