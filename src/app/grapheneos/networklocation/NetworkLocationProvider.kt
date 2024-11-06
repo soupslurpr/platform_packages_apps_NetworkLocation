@@ -301,9 +301,9 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
     }
 
     private suspend fun startNextScan() {
-        // scan takes ~11 seconds on lynx (Pixel 7a)
+        // scan takes ~1 second on lynx (Pixel 7a)
         val estimatedAfterScanElapsedRealtimeNanos =
-            SystemClock.elapsedRealtimeNanos() + 11.0.toDuration(DurationUnit.SECONDS).inWholeNanoseconds
+            SystemClock.elapsedRealtimeNanos() + 1.toDuration(DurationUnit.SECONDS).inWholeNanoseconds
         if (estimatedAfterScanElapsedRealtimeNanos < expectedNextLocationUpdateElapsedRealtimeNanos) {
             // delay to ensure we get a fresh location
             delay(expectedNextLocationUpdateElapsedRealtimeNanos - estimatedAfterScanElapsedRealtimeNanos)

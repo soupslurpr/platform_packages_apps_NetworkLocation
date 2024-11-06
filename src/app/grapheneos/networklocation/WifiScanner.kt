@@ -58,7 +58,7 @@ class WifiScanner(
         Log.d(TAG, "scanning update requested")
 
         val scanSettings = WifiScanner.ScanSettings()
-        scanSettings.band = WifiScanner.WIFI_BAND_BOTH
+        scanSettings.band = WifiScanner.WIFI_BAND_5_GHZ
         scanSettings.type = WifiScanner.SCAN_TYPE_LOW_LATENCY
 
         scanSettings.rnrSetting = WifiScanner.WIFI_RNR_NOT_NEEDED
