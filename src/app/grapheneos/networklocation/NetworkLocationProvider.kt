@@ -1,6 +1,5 @@
 package app.grapheneos.networklocation
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.ext.settings.NetworkLocationSettings
 import android.location.Location
