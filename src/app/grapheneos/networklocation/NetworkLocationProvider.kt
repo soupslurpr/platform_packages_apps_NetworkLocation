@@ -10,6 +10,7 @@ import android.location.provider.ProviderProperties
 import android.location.provider.ProviderRequest
 import android.net.wifi.ScanResult
 import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.provider.Settings
@@ -66,6 +67,9 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
     }
 
     fun scanFinished(scanResponse: WifiScanner.ScanResponse) {
+        if (DEBUG) {
+            Log.d(TAG, "finished scanning")
+        }
         reportLocationJob = reportLocationCoroutineScope.launch {
             if (!mRequest.isActive) {
                 cancel()
@@ -253,6 +257,10 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                 reportLocation(location)
             }
 
+            if (DEBUG) {
+                Log.d(TAG, "finished batching or reporting location")
+            }
+
             expectedNextLocationUpdateElapsedRealtimeNanos += mRequest.intervalMillis.toDuration(
                 DurationUnit.MILLISECONDS
             ).inWholeNanoseconds
@@ -326,6 +334,7 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
 
     companion object {
         private const val TAG: String = "NetworkLocationProvider"
+        private val DEBUG = Log.isLoggable(TAG, Log.DEBUG) || Build.IS_DEBUGGABLE
         private val PROPERTIES: ProviderProperties =
             ProviderProperties.Builder()
                 .setHasNetworkRequirement(true)
