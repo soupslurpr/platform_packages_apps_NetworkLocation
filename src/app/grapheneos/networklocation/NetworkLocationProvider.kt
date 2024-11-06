@@ -245,7 +245,9 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
             }
 
             if (isBatching) {
-                batchedLocations += location
+                if (location.isComplete) {
+                    batchedLocations += location
+                }
 
                 if ((SystemClock.elapsedRealtimeNanos() >= expectedNextBatchUpdateElapsedRealtimeNanos) || (batchedLocations.size >= (mRequest.maxUpdateDelayMillis / mRequest.intervalMillis))) {
                     expectedNextBatchUpdateElapsedRealtimeNanos += mRequest.maxUpdateDelayMillis.toDuration(
