@@ -1,10 +1,7 @@
 package app.grapheneos.networklocation
 
 import android.annotation.SuppressLint
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.ext.settings.NetworkLocationSettings
 import android.location.Location
 import android.location.LocationManager
@@ -45,20 +42,12 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
             )
         }
 
-    // We are above Android N (24)
-    @SuppressLint("WifiManagerPotentialLeak")
-    private val wifiManager = context.getSystemService(WifiManager::class.java)!!
+    private val wifiScanner = WifiScanner(context, ::mRequest, ::scanFinished)
     private var mRequest: ProviderRequest = ProviderRequest.EMPTY_REQUEST
     private var expectedNextLocationUpdateElapsedRealtimeNanos by Delegates.notNull<Long>()
     private var expectedNextBatchUpdateElapsedRealtimeNanos by Delegates.notNull<Long>()
     private var reportLocationJob: Job? = null
     private val reportLocationCoroutineScope = CoroutineScope(Dispatchers.IO)
-    private val wifiScanReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val isSuccessful = intent.getBooleanExtra(WifiManager.EXTRA_RESULTS_UPDATED, false)
-            scanFinished(isSuccessful)
-        }
-    }
     private val previousScanKnownAccessPoints: MutableSet<AppleWps.AccessPoint> = mutableSetOf()
     private val previousScanUnknownAccessPoints: MutableSet<AppleWps.AccessPoint> = mutableSetOf()
     private val isBatching: Boolean
@@ -72,37 +61,41 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
     private val batchedLocations: MutableList<Location> = mutableListOf()
 
     override fun isAllowed(): Boolean {
+        val wifiManager = context.getSystemService(WifiManager::class.java)!!
         return (networkLocationServerSetting != NetworkLocationSettings.NETWORK_LOCATION_DISABLED) && (wifiManager.isWifiEnabled || wifiManager.isScanAlwaysAvailable)
     }
 
-    fun scanFinished(isSuccessful: Boolean) {
+    fun scanFinished(scanResponse: WifiScanner.ScanResponse) {
         reportLocationJob = reportLocationCoroutineScope.launch {
             if (!mRequest.isActive) {
                 cancel()
             }
-            if (!isSuccessful) {
-                delay(1000)
-                startNextScan()
-                cancel()
-            }
+            val scanResults = when (scanResponse) {
+                is WifiScanner.ScanResponse.Failed -> {
+                    delay(1000)
+                    startNextScan()
+                    cancel()
+                    return@launch
+                }
 
-            val results = wifiManager.scanResults
+                is WifiScanner.ScanResponse.Success -> scanResponse.scanResults
+            }
             val location = Location(LocationManager.NETWORK_PROVIDER)
 
-            results.sortByDescending { it.level }
+            scanResults.sortByDescending { it.level }
 
             previousScanKnownAccessPoints.retainAll { knownAccessPoint ->
-                results.any { result ->
+                scanResults.any { result ->
                     result.BSSID == knownAccessPoint.bssid
                 }
             }
             previousScanUnknownAccessPoints.retainAll { unknownAccessPoint ->
-                results.any { result ->
+                scanResults.any { result ->
                     result.BSSID == unknownAccessPoint.bssid
                 }
             }
 
-            results.removeAll { result ->
+            scanResults.removeAll { result ->
                 previousScanUnknownAccessPoints.any { unknownAccessPoints ->
                     unknownAccessPoints.bssid == result.BSSID
                 }
@@ -110,7 +103,7 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
 
             var bestAvailableAccessPoint: Pair<ScanResult, AppleWps.AccessPoint>? = null
 
-            for (accessPointScanResult in results) {
+            for (accessPointScanResult in scanResults) {
                 run {
                     val foundAccessPoint = previousScanKnownAccessPoints.find { knownAccessPoint ->
                         knownAccessPoint.bssid == accessPointScanResult.BSSID
@@ -280,26 +273,18 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                 ).inWholeNanoseconds
         }
 
-        val intentFilter = IntentFilter()
-        intentFilter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)
-        context.registerReceiver(wifiScanReceiver, intentFilter)
-
         reportLocationJob = reportLocationCoroutineScope.launch {
             startNextScan()
         }
     }
 
     fun stop() {
+        wifiScanner.stop()
         mRequest = ProviderRequest.EMPTY_REQUEST
         reportLocationJob?.cancel()
         reportLocationJob = null
         previousScanKnownAccessPoints.clear()
         previousScanUnknownAccessPoints.clear()
-
-        try {
-            context.unregisterReceiver(wifiScanReceiver)
-        } catch (_: IllegalArgumentException) {
-        }
     }
 
     private suspend fun startNextScan() {
@@ -310,7 +295,7 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
             // delay to ensure we get a fresh location
             delay(expectedNextLocationUpdateElapsedRealtimeNanos - estimatedAfterScanElapsedRealtimeNanos)
         }
-        wifiManager.startScan(mRequest.workSource)
+        wifiScanner.start()
     }
 
     override fun onSetRequest(request: ProviderRequest) {
