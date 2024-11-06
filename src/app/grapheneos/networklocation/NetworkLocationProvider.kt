@@ -197,6 +197,9 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
                         } else {
                             delay(1000)
                         }
+                        if (bestAvailableAccessPoint != null) {
+                            break
+                        }
                     } finally {
                         connection.disconnect()
                     }
