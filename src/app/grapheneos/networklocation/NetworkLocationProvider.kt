@@ -60,6 +60,7 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
         }
     private val batchedLocations: MutableList<Location> = mutableListOf()
 
+    // TODO: this doesn't let the OS know it's disabled, see setAllowed()
     override fun isAllowed(): Boolean {
         val wifiManager = context.getSystemService(WifiManager::class.java)!!
         return (networkLocationServerSetting != NetworkLocationSettings.NETWORK_LOCATION_DISABLED) && (wifiManager.isWifiEnabled || wifiManager.isScanAlwaysAvailable)
