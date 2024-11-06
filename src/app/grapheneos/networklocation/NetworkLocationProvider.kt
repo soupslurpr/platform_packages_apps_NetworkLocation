@@ -47,7 +47,7 @@ class NetworkLocationProvider(private val context: Context) : LocationProviderBa
 
     // We are above Android N (24)
     @SuppressLint("WifiManagerPotentialLeak")
-    private val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    private val wifiManager = context.getSystemService(WifiManager::class.java)!!
     private var mRequest: ProviderRequest = ProviderRequest.EMPTY_REQUEST
     private var expectedNextLocationUpdateElapsedRealtimeNanos by Delegates.notNull<Long>()
     private var expectedNextBatchUpdateElapsedRealtimeNanos by Delegates.notNull<Long>()
