@@ -63,6 +63,7 @@ class NetworkLocationProvider(
     PROPERTIES
 ) {
     init {
+        // TODO: check if isAllowed just changed from true to false and if so, cancel jobs and clear caches
         CoroutineScope(Dispatchers.IO).launch {
             while (true) {
                 isAllowed =
