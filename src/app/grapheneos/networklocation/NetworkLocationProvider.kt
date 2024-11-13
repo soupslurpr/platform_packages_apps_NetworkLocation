@@ -1,7 +1,6 @@
 package app.grapheneos.networklocation
 
 import android.content.Context
-import android.ext.settings.NetworkLocationSettings
 import android.location.Location
 import android.location.provider.LocationProviderBase
 import android.location.provider.ProviderProperties
@@ -9,7 +8,6 @@ import android.location.provider.ProviderRequest
 import android.net.wifi.WifiScanner
 import android.os.Bundle
 import android.os.SystemClock
-import android.provider.Settings
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.NearbyWifiAccessPointsPositioningDataRepository
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.nearby_wifi_access_points.NearbyWifiAccessPointsRepository
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.nearby_wifi_access_points.data_sources.local.NearbyWifiAccessPointsApiImpl
@@ -17,7 +15,6 @@ import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.WifiAccessPointsPositioningDataRepository
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.data_sources.server.WifiAccessPointsPositioningDataApiImpl
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.data_sources.server.WifiAccessPointsPositioningDataServerDataSource
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 import kotlinx.coroutines.CoroutineScope
@@ -31,12 +28,7 @@ import kotlinx.coroutines.runBlocking
 
 class NetworkLocationProvider(
     private val context: Context,
-    private val networkLocationServerSetting: () -> Int = {
-        Settings.Global.getInt(
-            context.contentResolver,
-            Settings.Global.NETWORK_LOCATION
-        )
-    },
+    private val networkLocationSettingValue: () -> Int,
     private val networkLocationRepository: NetworkLocationRepository = NetworkLocationRepository(
         nearbyWifiAccessPointsPositioningDataRepository = NearbyWifiAccessPointsPositioningDataRepository(
             nearbyWifiAccessPointsRepository = NearbyWifiAccessPointsRepository(
@@ -50,7 +42,7 @@ class NetworkLocationProvider(
             wifiAccessPointsPositioningDataRepository = WifiAccessPointsPositioningDataRepository(
                 wifiAccessPointsPositioningDataServerDataSource = WifiAccessPointsPositioningDataServerDataSource(
                     wifiAccessPointsPositioningDataApi = WifiAccessPointsPositioningDataApiImpl(
-                        networkLocationServerSetting = networkLocationServerSetting
+                        networkLocationServerSetting = networkLocationSettingValue
                     ),
                     ioDispatcher = Dispatchers.IO
                 )
@@ -62,17 +54,6 @@ class NetworkLocationProvider(
     TAG,
     PROPERTIES
 ) {
-    init {
-        // TODO: check if isAllowed just changed from true to false and if so, cancel jobs and clear caches
-        CoroutineScope(Dispatchers.IO).launch {
-            while (true) {
-                isAllowed =
-                    networkLocationServerSetting() != NetworkLocationSettings.NETWORK_LOCATION_DISABLED
-                delay(1.seconds)
-            }
-        }
-    }
-
     private var batchedLocations: MutableList<Location> = mutableListOf()
 
     private var reportLocationJob: Job? = null
@@ -92,14 +73,7 @@ class NetworkLocationProvider(
             batchedLocations.clear()
         }
 
-        if (networkLocationServerSetting() == NetworkLocationSettings.NETWORK_LOCATION_DISABLED) {
-            isAllowed = false
-            return
-        } else {
-            isAllowed = true
-        }
-
-        if (request.isActive) {
+        if (request.isActive && isAllowed) {
             val isBatching =
                 (request.maxUpdateDelayMillis != 0L) && (request.maxUpdateDelayMillis >= (request.intervalMillis * 2))
             networkLocationRepository.setWorkSource(request.workSource)
@@ -133,13 +107,12 @@ class NetworkLocationProvider(
                     }
                 }
             }
+        } else {
+            // TODO:
+            // clear caches to prevent storing location history info
+//            networkLocationRepository.clearCaches()
         }
     }
-
-    // TODO: implement clearing caches and call it when request stops (!isActive) or when provider gets disabled
-//    private fun clearCaches() {
-//        networkLocationRepository.clearCaches()
-//    }
 
     override fun onFlush(callback: OnFlushCompleteCallback) {
         if (batchedLocations.isNotEmpty()) {
