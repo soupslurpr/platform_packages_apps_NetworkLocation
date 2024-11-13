@@ -3,11 +3,11 @@ package app.grapheneos.networklocation.nearby_wifi_access_points_positioning_dat
 import android.net.wifi.ScanResult
 import android.net.wifi.WifiScanner
 import android.net.wifi.WifiScanner.ScanListener
-import android.os.Build
 import android.os.SystemClock
 import android.os.WorkSource
 import android.util.Log
 import kotlin.properties.Delegates
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 import kotlinx.coroutines.delay
@@ -65,7 +65,7 @@ class NearbyWifiAccessPointsApiImpl(
         }
         wifiScanner.startScan(scanSettings, scanListener, workSource)
         while (isScanning) {
-            delay(1000)
+            delay(100.milliseconds)
         }
         return scanResults ?: mutableListOf()
     }
