@@ -4,6 +4,7 @@
         <permission name="android.permission.INSTALL_LOCATION_PROVIDER" />
         <permission name="android.permission.UPDATE_DEVICE_STATS" />
         <permission name="android.permission.LOCATION_HARDWARE" />
+        <permission name="android.permission.NETWORK_STACK" />
 
     </privapp-permissions>
 </permissions>

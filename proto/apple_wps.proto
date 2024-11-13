@@ -2,20 +2,20 @@ syntax = "proto3";
 
 package app.grapheneos.networklocation.apple_wps;
 
-option java_package = "app.grapheneos.networklocation.apple_wps";
+option java_package = "app.grapheneos.networklocation.wifi_access_points_positioning_data.data_sources.server";
 option java_outer_classname = "AppleWps";
 
-message Body {
+message AppleWifiAccessPointPositioningDataApiModel {
   repeated AccessPoint access_points = 2;
   int32 number_of_results = 4;
 }
 
 message AccessPoint {
   string bssid = 1;
-  PositioningInfo positioning_info = 2;
+  PositioningData positioning_data = 2;
 }
 
-message PositioningInfo {
+message PositioningData {
   int64 latitude = 1;
   int64 longitude = 2;
   int64 accuracy = 3;
