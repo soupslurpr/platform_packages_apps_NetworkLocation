@@ -6,7 +6,7 @@ import android.ext.settings.NetworkLocationSettings
 import android.location.provider.ProviderRequest
 import android.os.Handler
 import android.os.IBinder
-import kotlin.properties.Delegates
+import android.os.Looper
 
 /**
  * The network location service.
@@ -14,32 +14,33 @@ import kotlin.properties.Delegates
 class NetworkLocationService : Service() {
     private var provider: NetworkLocationProvider? = null
     private var networkLocationSettingObserver: Any? = null
-    private var networkLocationSettingValue by Delegates.notNull<Int>()
-
-    override fun onCreate() {
-        super.onCreate()
-        networkLocationSettingValue = networkLocationSetting.get(this)
+    private var networkLocationSettingValue = {
+        val networkLocationSettingValue = networkLocationSetting.get(this)
+        val isAllowed =
+            networkLocationSettingValue != NetworkLocationSettings.NETWORK_LOCATION_DISABLED
+        if (provider?.isAllowed != isAllowed) {
+            provider?.isAllowed = isAllowed
+            if (provider?.isAllowed == false) {
+                provider?.onSetRequest(ProviderRequest.EMPTY_REQUEST)
+            }
+        }
+        networkLocationSettingValue
     }
 
     override fun onBind(intent: Intent?): IBinder? {
         if (provider == null) {
             provider = NetworkLocationProvider(
                 context = this,
-                networkLocationSettingValue = { networkLocationSettingValue }
+                networkLocationSettingValue = networkLocationSettingValue
             )
         }
         if (networkLocationSettingObserver == null) {
             networkLocationSettingObserver =
                 networkLocationSetting.registerObserver(
                     this,
-                    Handler(false)
+                    Handler(Looper.getMainLooper())
                 ) {
-                    networkLocationSettingValue = it.get(this)
-                    provider?.isAllowed =
-                        networkLocationSettingValue != NetworkLocationSettings.NETWORK_LOCATION_DISABLED
-                    if (provider?.isAllowed == false) {
-                        provider?.onSetRequest(ProviderRequest.EMPTY_REQUEST)
-                    }
+                    networkLocationSettingValue()
                 }
         }
 
