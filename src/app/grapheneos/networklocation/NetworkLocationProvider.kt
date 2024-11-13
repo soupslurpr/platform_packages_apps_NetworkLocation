@@ -126,6 +126,9 @@ class NetworkLocationProvider(
 
     companion object {
         private const val TAG: String = "NetworkLocationProvider"
+        // TODO: for compatibility, match properties with Google's network location provider by
+        //  running a sample app in a Google Play Android VM and accessing getProviderProperties
+        //  for the network location provider.
         private val PROPERTIES: ProviderProperties =
             ProviderProperties.Builder()
                 .setHasNetworkRequirement(true)
