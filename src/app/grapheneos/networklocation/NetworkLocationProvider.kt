@@ -17,6 +17,7 @@ import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.WifiAccessPointsPositioningDataRepository
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.data_sources.server.WifiAccessPointsPositioningDataApiImpl
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.data_sources.server.WifiAccessPointsPositioningDataServerDataSource
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 import kotlinx.coroutines.CoroutineScope
@@ -61,11 +62,15 @@ class NetworkLocationProvider(
     TAG,
     PROPERTIES
 ) {
-    // TODO: properly implement enabling/disabling the provider
-//    init {
-//        isAllowed =
-//            networkLocationServerSetting() != NetworkLocationSettings.NETWORK_LOCATION_DISABLED
-//    }
+    init {
+        CoroutineScope(Dispatchers.IO).launch {
+            while (true) {
+                isAllowed =
+                    networkLocationServerSetting() != NetworkLocationSettings.NETWORK_LOCATION_DISABLED
+                delay(1.seconds)
+            }
+        }
+    }
 
     private var batchedLocations: MutableList<Location> = mutableListOf()
 
