@@ -123,14 +123,17 @@ class NetworkLocationProvider(
 
     companion object {
         private const val TAG: String = "NetworkLocationProvider"
-        // TODO: for compatibility, match properties with Google's network location provider by
-        //  running a sample app in a Google Play Android VM and accessing getProviderProperties
-        //  for the network location provider.
+
+        // make sure to manually keep in sync with Google's network location provider properties
+        // for app compatibility
         private val PROPERTIES: ProviderProperties =
             ProviderProperties.Builder()
-                .setHasNetworkRequirement(true)
-                .setPowerUsage(ProviderProperties.POWER_USAGE_LOW)
+                .setPowerUsage(ProviderProperties.POWER_USAGE_MEDIUM)
                 .setAccuracy(ProviderProperties.ACCURACY_FINE)
+                .setHasNetworkRequirement(true)
+                // TODO: altitude values are returned by the server data source API, we just don't
+                //  parse it yet and not sure if it reports altitude accuracy
+//                .setHasAltitudeSupport(true)
                 .build()
     }
 }
