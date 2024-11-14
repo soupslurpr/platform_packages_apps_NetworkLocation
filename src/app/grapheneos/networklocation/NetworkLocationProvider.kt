@@ -5,6 +5,7 @@ import android.location.Location
 import android.location.provider.LocationProviderBase
 import android.location.provider.ProviderProperties
 import android.location.provider.ProviderRequest
+import android.net.wifi.WifiManager
 import android.net.wifi.WifiScanner
 import android.os.Bundle
 import android.os.SystemClock
@@ -33,7 +34,8 @@ class NetworkLocationProvider(
             nearbyWifiAccessPointsRepository = NearbyWifiAccessPointsRepository(
                 nearbyWifiAccessPointsLocalDataSource = NearbyWifiAccessPointsLocalDataSource(
                     nearbyWifiAccessPointsApi = NearbyWifiAccessPointsApiImpl(
-                        wifiScanner = context.getSystemService(WifiScanner::class.java)!!
+                        wifiScanner = context.getSystemService(WifiScanner::class.java)!!,
+                        wifiManager = context.getSystemService(WifiManager::class.java)!!
                     ),
                     ioDispatcher = Dispatchers.IO
                 )

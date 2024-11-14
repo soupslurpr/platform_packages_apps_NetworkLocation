@@ -1,6 +1,7 @@
 package app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.nearby_wifi_access_points.data_sources.local
 
 import android.net.wifi.ScanResult
+import android.net.wifi.WifiManager
 import android.net.wifi.WifiScanner
 import android.net.wifi.WifiScanner.ScanListener
 import android.os.SystemClock
@@ -12,12 +13,16 @@ import kotlin.time.Duration.Companion.nanoseconds
 import kotlinx.coroutines.delay
 
 class NearbyWifiAccessPointsApiImpl(
-    private val wifiScanner: WifiScanner
+    private val wifiScanner: WifiScanner,
+    private val wifiManager: WifiManager
 ) : NearbyWifiAccessPointsApi {
     private var updateTargetElapsedRealtimeNanos by Delegates.notNull<Long>()
     private lateinit var workSource: WorkSource
 
-    override suspend fun fetchFreshestNearbyWifiAccessPoints(): MutableList<ScanResult> {
+    override suspend fun fetchFreshestNearbyWifiAccessPoints(): MutableList<ScanResult>? {
+        if (!wifiManager.isWifiScannerSupported && !(wifiManager.isWifiEnabled || wifiManager.isScanAlwaysAvailable)) {
+            return null
+        }
         // TODO: can use more time-consuming settings if we have enough time
         val scanSettings = WifiScanner.ScanSettings()
         scanSettings.band = WifiScanner.WIFI_BAND_5_GHZ
@@ -64,7 +69,7 @@ class NearbyWifiAccessPointsApiImpl(
         while (isScanning) {
             delay(100.milliseconds)
         }
-        return scanResults ?: mutableListOf()
+        return scanResults
     }
 
     override fun setUpdateTarget(updateTargetElapsedRealtimeNanos: Long) {

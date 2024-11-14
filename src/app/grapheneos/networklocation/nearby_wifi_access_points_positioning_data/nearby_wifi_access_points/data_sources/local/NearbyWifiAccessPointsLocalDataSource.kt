@@ -15,7 +15,9 @@ class NearbyWifiAccessPointsLocalDataSource(
         while (true) {
             val nearbyWifiAccessPoints =
                 nearbyWifiAccessPointsApi.fetchFreshestNearbyWifiAccessPoints()
-            emit(nearbyWifiAccessPoints)
+            if (nearbyWifiAccessPoints != null) {
+                emit(nearbyWifiAccessPoints)
+            }
         }
     }.flowOn(ioDispatcher)
 
@@ -29,7 +31,7 @@ interface NearbyWifiAccessPointsApi {
     /**
      * Fetch the freshest (to the update target time) nearby Wi-Fi access points.
      */
-    suspend fun fetchFreshestNearbyWifiAccessPoints(): MutableList<ScanResult>
+    suspend fun fetchFreshestNearbyWifiAccessPoints(): MutableList<ScanResult>?
 
     /**
      * Target time to update the flow.
