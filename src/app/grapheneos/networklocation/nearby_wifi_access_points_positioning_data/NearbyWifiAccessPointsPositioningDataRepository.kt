@@ -127,6 +127,12 @@ class NearbyWifiAccessPointsPositioningDataRepository(
         nearbyWifiAccessPointsRepository.setWorkSource(workSource)
     }
 
+    suspend fun clearCaches() {
+        latestNearbyWifiAccessPointsPositioningDataCacheMutex.withLock {
+            latestNearbyWifiAccessPointsPositioningDataCache.clear()
+        }
+    }
+
     companion object {
         const val TAG = "NearbyWifiAccessPointsPositioningDataRepository"
     }

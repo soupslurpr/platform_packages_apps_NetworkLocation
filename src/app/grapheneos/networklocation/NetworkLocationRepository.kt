@@ -60,4 +60,8 @@ class NetworkLocationRepository(
     fun setWorkSource(workSource: WorkSource) {
         nearbyWifiAccessPointsPositioningDataRepository.setWorkSource(workSource)
     }
+
+    suspend fun clearCaches() {
+        nearbyWifiAccessPointsPositioningDataRepository.clearCaches()
+    }
 }

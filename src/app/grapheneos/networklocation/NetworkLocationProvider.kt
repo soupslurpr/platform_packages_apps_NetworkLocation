@@ -103,9 +103,11 @@ class NetworkLocationProvider(
                 }
             }
         } else {
-            // TODO:
-            // clear caches to prevent storing location history info
-//            networkLocationRepository.clearCaches()
+            // clear caches when the request is inactive or isAllowed is false to prevent saving a
+            // location history
+            runBlocking {
+                networkLocationRepository.clearCaches()
+            }
         }
     }
 
