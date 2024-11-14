@@ -15,8 +15,7 @@ import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.WifiAccessPointsPositioningDataRepository
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.data_sources.server.WifiAccessPointsPositioningDataApiImpl
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.data_sources.server.WifiAccessPointsPositioningDataServerDataSource
-import kotlin.time.DurationUnit
-import kotlin.time.toDuration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -78,17 +77,13 @@ class NetworkLocationProvider(
                 (request.maxUpdateDelayMillis != 0L) && (request.maxUpdateDelayMillis >= (request.intervalMillis * 2))
             networkLocationRepository.setWorkSource(request.workSource)
             networkLocationRepository.setUpdateTarget(
-                SystemClock.elapsedRealtimeNanos() + request.intervalMillis.toDuration(
-                    DurationUnit.MILLISECONDS
-                ).inWholeNanoseconds
+                SystemClock.elapsedRealtimeNanos() + request.intervalMillis.milliseconds.inWholeNanoseconds
             )
             incrementUpdateTargetJob = incrementUpdateTargetCoroutine.launch {
                 while (isActive) {
                     delay(request.intervalMillis)
                     networkLocationRepository.setUpdateTarget(
-                        SystemClock.elapsedRealtimeNanos() + request.intervalMillis.toDuration(
-                            DurationUnit.MILLISECONDS
-                        ).inWholeNanoseconds
+                        SystemClock.elapsedRealtimeNanos() + request.intervalMillis.milliseconds.inWholeNanoseconds
                     )
                 }
             }

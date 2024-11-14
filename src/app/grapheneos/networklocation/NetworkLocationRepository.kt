@@ -6,8 +6,8 @@ import android.os.SystemClock
 import android.os.WorkSource
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.NearbyWifiAccessPointsPositioningDataRepository
 import kotlin.math.pow
-import kotlin.time.DurationUnit
-import kotlin.time.toDuration
+import kotlin.time.Duration.Companion.microseconds
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -25,12 +25,9 @@ class NetworkLocationRepository(
             if (firstNearbyWifiAccessPoint?.positioningData != null) {
                 location = Location(LocationManager.NETWORK_PROVIDER)
                 location.elapsedRealtimeNanos =
-                    firstNearbyWifiAccessPoint.positioningData.lastSeen.toDuration(DurationUnit.MICROSECONDS).inWholeNanoseconds
+                    firstNearbyWifiAccessPoint.positioningData.lastSeen.microseconds.inWholeNanoseconds
                 location.time =
-                    (System.currentTimeMillis() - SystemClock.elapsedRealtimeNanos()
-                        .toDuration(DurationUnit.NANOSECONDS).inWholeMilliseconds) + location.elapsedRealtimeNanos.toDuration(
-                        DurationUnit.NANOSECONDS
-                    ).inWholeMilliseconds
+                    (System.currentTimeMillis() - SystemClock.elapsedRealtimeNanos().nanoseconds.inWholeMilliseconds) + location.elapsedRealtimeNanos.nanoseconds.inWholeMilliseconds
                 location.longitude = firstNearbyWifiAccessPoint.positioningData.longitude
                 location.latitude = firstNearbyWifiAccessPoint.positioningData.latitude
                 location.accuracy = run {

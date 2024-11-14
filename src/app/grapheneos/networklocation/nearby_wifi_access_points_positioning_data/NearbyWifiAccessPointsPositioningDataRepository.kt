@@ -2,11 +2,9 @@ package app.grapheneos.networklocation.nearby_wifi_access_points_positioning_dat
 
 import android.net.wifi.ScanResult
 import android.os.WorkSource
-import android.util.Log
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.nearby_wifi_access_points.NearbyWifiAccessPointsRepository
 import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.WifiAccessPointsPositioningDataRepository
-import kotlin.time.DurationUnit
-import kotlin.time.toDuration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -119,7 +117,7 @@ class NearbyWifiAccessPointsPositioningDataRepository(
 
     fun setUpdateTarget(updateTargetElapsedRealtimeNanos: Long) {
         val timeAllocatedToFetchingPositioningData =
-            150.toDuration(DurationUnit.MILLISECONDS).inWholeNanoseconds
+            150.milliseconds.inWholeNanoseconds
         val nearbyWifiAccessPointsUpdateTarget =
             updateTargetElapsedRealtimeNanos - timeAllocatedToFetchingPositioningData
         nearbyWifiAccessPointsRepository.setUpdateTarget(nearbyWifiAccessPointsUpdateTarget)

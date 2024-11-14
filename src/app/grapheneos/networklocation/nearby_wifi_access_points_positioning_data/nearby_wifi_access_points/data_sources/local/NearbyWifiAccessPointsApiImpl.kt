@@ -8,8 +8,7 @@ import android.os.WorkSource
 import android.util.Log
 import kotlin.properties.Delegates
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.DurationUnit
-import kotlin.time.toDuration
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlinx.coroutines.delay
 
 class NearbyWifiAccessPointsApiImpl(
@@ -25,11 +24,9 @@ class NearbyWifiAccessPointsApiImpl(
         scanSettings.type = WifiScanner.SCAN_TYPE_LOW_LATENCY
         scanSettings.rnrSetting = WifiScanner.WIFI_RNR_NOT_NEEDED
         // estimated scanning duration for 5 GHz only
-        val estimatedScanningDuration = 1000.toDuration(DurationUnit.MILLISECONDS)
+        val estimatedScanningDuration = 1000.milliseconds
         delay(
-            (updateTargetElapsedRealtimeNanos - SystemClock.elapsedRealtimeNanos()).toDuration(
-                DurationUnit.NANOSECONDS
-            ) - estimatedScanningDuration
+            (updateTargetElapsedRealtimeNanos - SystemClock.elapsedRealtimeNanos()).nanoseconds - estimatedScanningDuration
         )
         var scanResults: MutableList<ScanResult>? = null
         var isScanning = true
