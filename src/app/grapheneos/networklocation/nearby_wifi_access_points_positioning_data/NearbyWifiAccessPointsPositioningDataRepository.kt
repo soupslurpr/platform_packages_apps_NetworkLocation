@@ -132,10 +132,6 @@ class NearbyWifiAccessPointsPositioningDataRepository(
             latestNearbyWifiAccessPointsPositioningDataCache.clear()
         }
     }
-
-    companion object {
-        const val TAG = "NearbyWifiAccessPointsPositioningDataRepository"
-    }
 }
 
 data class NearbyWifiAccessPoint(
