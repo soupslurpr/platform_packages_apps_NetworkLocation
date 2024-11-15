@@ -46,7 +46,7 @@ class NearbyWifiAccessPointsPositioningDataRepository(
                 for (scanResult in sortedByLevelScanResults) {
                     val cachedNearbyWifiAccessPoint =
                         latestNearbyWifiAccessPointsPositioningDataCacheMutex.withLock {
-                            latestNearbyWifiAccessPointsPositioningDataCache.find { cacheEntry ->
+                            latestNearbyWifiAccessPointsPositioningDataCache.firstOrNull { cacheEntry ->
                                 scanResult.BSSID == cacheEntry.bssid
                             }
                         }
