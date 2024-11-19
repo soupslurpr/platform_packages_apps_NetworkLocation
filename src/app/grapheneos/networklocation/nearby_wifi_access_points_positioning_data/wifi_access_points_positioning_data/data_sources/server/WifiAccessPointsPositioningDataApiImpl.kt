@@ -10,7 +10,7 @@ import javax.net.ssl.HttpsURLConnection
 class WifiAccessPointsPositioningDataApiImpl(
     private val networkLocationServerSetting: () -> Int
 ) : WifiAccessPointsPositioningDataApi {
-    override fun fetchWifiAccessPointsPositioningData(wifiAccessPointsBssid: List<String>): AppleWps.AppleWifiAccessPointPositioningDataApiModel? {
+    override suspend fun fetchWifiAccessPointsPositioningData(wifiAccessPointsBssid: List<String>): AppleWps.AppleWifiAccessPointPositioningDataApiModel? {
         try {
             val url = URL(
                 when (networkLocationServerSetting()) {
