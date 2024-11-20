@@ -17,7 +17,7 @@ class WifiAccessPointsPositioningDataServerDataSource(
 }
 
 interface WifiAccessPointsPositioningDataApi {
-    suspend fun fetchWifiAccessPointsPositioningData(wifiAccessPointsBssid: List<String>): AppleWps.AppleWifiAccessPointPositioningDataApiModel?
+    fun fetchWifiAccessPointsPositioningData(wifiAccessPointsBssid: List<String>): AppleWps.AppleWifiAccessPointPositioningDataApiModel?
 }
 
 fun AppleWps.PositioningData.isNull(): Boolean = this.latitude == -18000000000
