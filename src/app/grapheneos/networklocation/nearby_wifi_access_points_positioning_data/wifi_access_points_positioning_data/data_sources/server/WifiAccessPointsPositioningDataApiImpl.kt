@@ -23,7 +23,7 @@ class WifiAccessPointsPositioningDataApiImpl(
                     }
 
                     else -> {
-                        throw RuntimeException("Server is not selected!")
+                        return null
                     }
                 }
             )
