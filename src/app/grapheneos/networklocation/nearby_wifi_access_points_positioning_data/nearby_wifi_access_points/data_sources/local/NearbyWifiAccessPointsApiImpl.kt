@@ -56,7 +56,7 @@ class NearbyWifiAccessPointsApiImpl(
                 override fun onResults(results: Array<out WifiScanner.ScanData>?) {
                     // For single scans, the array size should always be 1.
                     if (results?.size != 1) {
-                        Log.wtf(TAG, "Found more than 1 batch of scan results, Ignoring...")
+                        Log.wtf(TAG, "Found more than 1 batch of scan results, ignoring...")
                         continuation.resume(null)
                         return
                     }
