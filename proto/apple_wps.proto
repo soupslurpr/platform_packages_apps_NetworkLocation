@@ -18,5 +18,5 @@ message AccessPoint {
 message PositioningData {
   int64 latitude = 1;
   int64 longitude = 2;
-  int64 accuracy = 3;
+  int64 accuracy_meters = 3;
 }

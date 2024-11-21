@@ -22,7 +22,7 @@ class WifiAccessPointsPositioningDataRepository(
                             WifiAccessPointPositioningData(
                                 serverApiPositioningData.latitude * 10.toDouble().pow(-8),
                                 serverApiPositioningData.longitude * 10.toDouble().pow(-8),
-                                serverApiPositioningData.accuracy.toDouble(),
+                                serverApiPositioningData.accuracyMeters
                             )
                         }
                     } else {
@@ -43,5 +43,7 @@ data class WifiAccessPoint(
 data class WifiAccessPointPositioningData(
     val latitude: Double,
     val longitude: Double,
-    val accuracyInMeters: Double
+    val accuracyMeters: Long
+    val altitudeMeters: Long?,
+    val verticalAccuracyMeters: Long?
 )
