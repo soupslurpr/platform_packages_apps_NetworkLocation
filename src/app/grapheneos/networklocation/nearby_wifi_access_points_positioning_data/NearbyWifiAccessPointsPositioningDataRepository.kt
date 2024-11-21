@@ -142,7 +142,7 @@ data class NearbyWifiAccessPoint(
 data class NearbyWifiAccessPointPositioningData(
     val latitude: Double,
     val longitude: Double,
-    var accuracyMeters: Double,
+    var accuracyMeters: Long,
     val rssi: Int,
     /** timestamp in microseconds (since boot) when this result was last seen. */
     val lastSeen: Long
