@@ -45,7 +45,7 @@ class NetworkLocationRepository(
                         referenceDistance * 10f.pow((pathLoss - pathLossAtReferenceDistance) / (10f * pathLossExponent))
                     }
                     // should be at the 68th percentile confidence level
-                    (firstNearbyWifiAccessPoint.positioningData.accuracyMeters * 0.32).toFloat() + distanceFromAccessPoint
+                    (firstNearbyWifiAccessPoint.positioningData.accuracyMeters * 0.32f) + distanceFromAccessPoint
                 }
             }
             location
