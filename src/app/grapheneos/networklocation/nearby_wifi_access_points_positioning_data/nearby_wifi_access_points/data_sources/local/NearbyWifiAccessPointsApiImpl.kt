@@ -57,6 +57,7 @@ class NearbyWifiAccessPointsApiImpl(
                     // For single scans, the array size should always be 1.
                     if (results?.size != 1) {
                         Log.wtf(TAG, "Found more than 1 batch of scan results, Ignoring...")
+                        continuation.resume(null)
                         return
                     }
                     val scannedAccessPoints = results[0].results.toMutableList()
