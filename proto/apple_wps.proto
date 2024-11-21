@@ -19,4 +19,7 @@ message PositioningData {
   int64 latitude = 1;
   int64 longitude = 2;
   int64 accuracy_meters = 3;
+  int64 unknown_4 = 4;
+  int64 altitude_meters = 5;
+  int64 vertical_accuracy_meters = 6;
 }

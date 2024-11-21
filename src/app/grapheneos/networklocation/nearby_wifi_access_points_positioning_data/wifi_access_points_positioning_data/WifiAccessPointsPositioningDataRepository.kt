@@ -22,7 +22,23 @@ class WifiAccessPointsPositioningDataRepository(
                             WifiAccessPointPositioningData(
                                 serverApiPositioningData.latitude * 10.toDouble().pow(-8),
                                 serverApiPositioningData.longitude * 10.toDouble().pow(-8),
-                                serverApiPositioningData.accuracyMeters
+                                serverApiPositioningData.accuracyMeters,
+                                serverApiPositioningData.altitudeMeters.let { altitudeMeters ->
+                                    // the api returns -1 or -500 for unknown altitude
+                                    if ((altitudeMeters == -1L) || (altitudeMeters == -500L)) {
+                                        null
+                                    } else {
+                                        altitudeMeters
+                                    }
+                                },
+                                serverApiPositioningData.verticalAccuracyMeters.let { verticalAccuracyMeters ->
+                                    // the api returns -1 for unknown vertical accuracy (altitude accuracy)
+                                    if (verticalAccuracyMeters == -1L) {
+                                        null
+                                    } else {
+                                        verticalAccuracyMeters
+                                    }
+                                }
                             )
                         }
                     } else {
@@ -43,7 +59,7 @@ data class WifiAccessPoint(
 data class WifiAccessPointPositioningData(
     val latitude: Double,
     val longitude: Double,
-    val accuracyMeters: Long
+    val accuracyMeters: Long,
     val altitudeMeters: Long?,
     val verticalAccuracyMeters: Long?
 )

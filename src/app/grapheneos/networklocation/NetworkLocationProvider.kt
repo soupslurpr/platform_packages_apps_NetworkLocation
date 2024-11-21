@@ -133,9 +133,7 @@ class NetworkLocationProvider(
                 .setPowerUsage(ProviderProperties.POWER_USAGE_MEDIUM)
                 .setAccuracy(ProviderProperties.ACCURACY_FINE)
                 .setHasNetworkRequirement(true)
-                // TODO: altitude values are returned by the server data source API, we just don't
-                //  parse it yet and not sure if it reports altitude accuracy
-//                .setHasAltitudeSupport(true)
+                .setHasAltitudeSupport(true)
                 .build()
     }
 }

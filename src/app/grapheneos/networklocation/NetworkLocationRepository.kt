@@ -47,6 +47,15 @@ class NetworkLocationRepository(
                     // should be at the 68th percentile confidence level
                     (firstNearbyWifiAccessPoint.positioningData.accuracyMeters * 0.32f) + distanceFromAccessPoint
                 }
+                if (firstNearbyWifiAccessPoint.positioningData.altitudeMeters != null) {
+                    location.altitude =
+                        firstNearbyWifiAccessPoint.positioningData.altitudeMeters.toDouble()
+                }
+                if (firstNearbyWifiAccessPoint.positioningData.verticalAccuracyMeters != null) {
+                    // should be at the 68th percentile confidence level
+                    location.verticalAccuracyMeters =
+                        firstNearbyWifiAccessPoint.positioningData.verticalAccuracyMeters * 0.32f
+                }
             }
             location
         }

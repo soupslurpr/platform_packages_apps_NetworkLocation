@@ -96,6 +96,8 @@ class NearbyWifiAccessPointsPositioningDataRepository(
                                         longitude = firstWifiAccessPointPositioningData.longitude,
                                         accuracyMeters = firstWifiAccessPointPositioningData.accuracyMeters,
                                         rssi = scanResult.level,
+                                        altitudeMeters = firstWifiAccessPointPositioningData.altitudeMeters,
+                                        verticalAccuracyMeters = firstWifiAccessPointPositioningData.verticalAccuracyMeters,
                                         lastSeen = scanResult.timestamp
                                     )
                                 }
@@ -144,6 +146,8 @@ data class NearbyWifiAccessPointPositioningData(
     val longitude: Double,
     var accuracyMeters: Long,
     val rssi: Int,
+    val altitudeMeters: Long?,
+    val verticalAccuracyMeters: Long?,
     /** timestamp in microseconds (since boot) when this result was last seen. */
     val lastSeen: Long
 )
