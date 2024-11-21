@@ -55,6 +55,7 @@ class WifiAccessPointsPositioningDataApiImpl(
                                     AppleWps.AccessPoint.newBuilder().setBssid(bssid).build()
                                 }
                             )
+                            .setNumberOfResults(wifiAccessPointsBssid.size)
                             .build()
 
                     outputStream.write(header)
