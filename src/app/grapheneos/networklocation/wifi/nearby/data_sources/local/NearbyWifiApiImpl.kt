@@ -1,4 +1,4 @@
-package app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.nearby_wifi_access_points.data_sources.local
+package app.grapheneos.networklocation.wifi.nearby.data_sources.local
 
 import android.net.wifi.ScanResult
 import android.net.wifi.WifiManager
@@ -14,14 +14,14 @@ import kotlin.time.Duration.Companion.nanoseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-class NearbyWifiAccessPointsApiImpl(
+class NearbyWifiApiImpl(
     private val wifiScanner: WifiScanner,
     private val wifiManager: WifiManager
-) : NearbyWifiAccessPointsApi {
+) : NearbyWifiApi {
     private var updateTargetElapsedRealtimeNanos by Delegates.notNull<Long>()
     private lateinit var workSource: WorkSource
 
-    override suspend fun fetchFreshestNearbyWifiAccessPoints(): MutableList<ScanResult>? {
+    override suspend fun fetchFreshestNearbyWifi(): MutableList<ScanResult>? {
         if (!wifiManager.isWifiScannerSupported && !(wifiManager.isWifiEnabled || wifiManager.isScanAlwaysAvailable)) {
             return null
         }
@@ -76,12 +76,12 @@ class NearbyWifiAccessPointsApiImpl(
     }
 
     override fun setUpdateTarget(updateTargetElapsedRealtimeNanos: Long) {
-        this@NearbyWifiAccessPointsApiImpl.updateTargetElapsedRealtimeNanos =
+        this@NearbyWifiApiImpl.updateTargetElapsedRealtimeNanos =
             updateTargetElapsedRealtimeNanos
     }
 
     override fun setWorkSource(workSource: WorkSource) {
-        this@NearbyWifiAccessPointsApiImpl.workSource = workSource
+        this@NearbyWifiApiImpl.workSource = workSource
     }
 
     companion object {

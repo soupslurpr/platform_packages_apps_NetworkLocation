@@ -1,16 +1,15 @@
-package app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.data_sources.server
+package app.grapheneos.networklocation.wifi.positioning_data.data_sources.server
 
 import android.ext.settings.NetworkLocationSettings
 import android.util.Log
-import app.grapheneos.networklocation.wifi_access_points_positioning_data.data_sources.server.AppleWps
 import java.io.IOException
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
-class WifiAccessPointsPositioningDataApiImpl(
+class WifiPositioningDataApiImpl(
     private val networkLocationServerSetting: () -> Int
-) : WifiAccessPointsPositioningDataApi {
-    override fun fetchWifiAccessPointsPositioningData(wifiAccessPointsBssid: List<String>): AppleWps.AppleWifiAccessPointPositioningDataApiModel? {
+) : WifiPositioningDataApi {
+    override fun fetchPositioningData(wifiAccessPointsBssid: List<String>): AppleWps.WifiPositioningDataApiModel? {
         try {
             val url = URL(
                 when (networkLocationServerSetting()) {
@@ -49,7 +48,7 @@ class WifiAccessPointsPositioningDataApiImpl(
                     header += 0.toByte()
 
                     val body =
-                        AppleWps.AppleWifiAccessPointPositioningDataApiModel.newBuilder()
+                        AppleWps.WifiPositioningDataApiModel.newBuilder()
                             .addAllAccessPoints(
                                 wifiAccessPointsBssid.map { bssid ->
                                     AppleWps.AccessPoint.newBuilder().setBssid(bssid).build()
@@ -67,7 +66,7 @@ class WifiAccessPointsPositioningDataApiImpl(
                     connection.inputStream.use { inputStream ->
                         inputStream.skip(10)
                         val successfulResponse =
-                            AppleWps.AppleWifiAccessPointPositioningDataApiModel.parseFrom(
+                            AppleWps.WifiPositioningDataApiModel.parseFrom(
                                 inputStream
                             )
 

@@ -1,25 +1,25 @@
-package app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data
+package app.grapheneos.networklocation.wifi.positioning_data
 
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.data_sources.server.WifiAccessPointsPositioningDataServerDataSource
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.data_sources.server.isNull
+import app.grapheneos.networklocation.wifi.positioning_data.data_sources.server.WifiPositioningDataServerDataSource
+import app.grapheneos.networklocation.wifi.positioning_data.data_sources.server.isNull
 import kotlin.math.pow
 
-class WifiAccessPointsPositioningDataRepository(
-    private val wifiAccessPointsPositioningDataServerDataSource: WifiAccessPointsPositioningDataServerDataSource,
+class WifiPositioningDataRepository(
+    private val wifiPositioningDataServerDataSource: WifiPositioningDataServerDataSource,
 ) {
-    suspend fun fetchWifiAccessPointsPositioningData(wifiAccessPointsBssid: List<String>): List<WifiAccessPoint>? {
-        val wifiAccessPointsPositioningDataServerDataSource =
-            wifiAccessPointsPositioningDataServerDataSource.fetchWifiAccessPointsPositioningData(
-                wifiAccessPointsBssid
+    suspend fun fetchPositioningData(accessPointBssids: List<String>): List<AccessPoint>? {
+        val positioningData =
+            wifiPositioningDataServerDataSource.fetchPositioningData(
+                accessPointBssids
             )?.accessPointsList
 
-        val convertedWifiAccessPointsPositioningDataServerDataSource =
-            wifiAccessPointsPositioningDataServerDataSource?.map {
-                WifiAccessPoint(
+        val convertedPositioningData =
+            positioningData?.map {
+                AccessPoint(
                     bssid = it.bssid,
                     positioningData = if (!it.positioningData.isNull()) {
                         it.positioningData.let { serverApiPositioningData ->
-                            WifiAccessPointPositioningData(
+                            WifiPositioningData(
                                 serverApiPositioningData.latitude * 10.toDouble().pow(-8),
                                 serverApiPositioningData.longitude * 10.toDouble().pow(-8),
                                 serverApiPositioningData.accuracyMeters,
@@ -47,16 +47,16 @@ class WifiAccessPointsPositioningDataRepository(
                 )
             }
 
-        return convertedWifiAccessPointsPositioningDataServerDataSource
+        return convertedPositioningData
     }
 }
 
-data class WifiAccessPoint(
+data class AccessPoint(
     val bssid: String,
-    val positioningData: WifiAccessPointPositioningData?
+    val positioningData: WifiPositioningData?
 )
 
-data class WifiAccessPointPositioningData(
+data class WifiPositioningData(
     val latitude: Double,
     val longitude: Double,
     val accuracyMeters: Long,

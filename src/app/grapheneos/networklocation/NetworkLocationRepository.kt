@@ -4,7 +4,7 @@ import android.location.Location
 import android.location.LocationManager
 import android.os.SystemClock
 import android.os.WorkSource
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.NearbyWifiAccessPointsPositioningDataRepository
+import app.grapheneos.networklocation.wifi.nearby_positioning_data.NearbyWifiPositioningDataRepository
 import kotlin.math.pow
 import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Duration.Companion.nanoseconds
@@ -16,24 +16,24 @@ import kotlinx.coroutines.flow.map
  * location fix.
  */
 class NetworkLocationRepository(
-    private val nearbyWifiAccessPointsPositioningDataRepository: NearbyWifiAccessPointsPositioningDataRepository
+    private val nearbyWifiPositioningDataRepository: NearbyWifiPositioningDataRepository
 ) {
     val latestLocation: Flow<Location?> =
-        nearbyWifiAccessPointsPositioningDataRepository.latestNearbyWifiAccessPointsPositioningData.map { nearbyWifiAccessPointsPositioningData ->
+        nearbyWifiPositioningDataRepository.latestPositioningData.map { nearbyWifiPositioningData ->
             var location: Location? = null
-            val firstNearbyWifiAccessPoint = nearbyWifiAccessPointsPositioningData.getOrNull(0)
-            if (firstNearbyWifiAccessPoint?.positioningData != null) {
+            val firstNearbyWifi = nearbyWifiPositioningData.getOrNull(0)
+            if (firstNearbyWifi?.positioningData != null) {
                 location = Location(LocationManager.NETWORK_PROVIDER)
                 location.elapsedRealtimeNanos =
-                    firstNearbyWifiAccessPoint.positioningData.lastSeen.microseconds.inWholeNanoseconds
+                    firstNearbyWifi.positioningData.lastSeen.microseconds.inWholeNanoseconds
                 location.time =
                     (System.currentTimeMillis() - SystemClock.elapsedRealtimeNanos().nanoseconds.inWholeMilliseconds) + location.elapsedRealtimeNanos.nanoseconds.inWholeMilliseconds
-                location.longitude = firstNearbyWifiAccessPoint.positioningData.longitude
-                location.latitude = firstNearbyWifiAccessPoint.positioningData.latitude
+                location.longitude = firstNearbyWifi.positioningData.longitude
+                location.latitude = firstNearbyWifi.positioningData.latitude
                 location.accuracy = run {
                     // estimate distance in meters from access point using the Log-Distance Path Loss Model
                     val distanceFromAccessPoint = run {
-                        val rssi = firstNearbyWifiAccessPoint.positioningData.rssi
+                        val rssi = firstNearbyWifi.positioningData.rssi
                         // assume it's 30
                         val transmittedPower = 30f
                         val pathLoss = transmittedPower - rssi
@@ -45,32 +45,32 @@ class NetworkLocationRepository(
                         referenceDistance * 10f.pow((pathLoss - pathLossAtReferenceDistance) / (10f * pathLossExponent))
                     }
                     // should be at the 68th percentile confidence level
-                    (firstNearbyWifiAccessPoint.positioningData.accuracyMeters * 0.32f) + distanceFromAccessPoint
+                    (firstNearbyWifi.positioningData.accuracyMeters * 0.32f) + distanceFromAccessPoint
                 }
-                if (firstNearbyWifiAccessPoint.positioningData.altitudeMeters != null) {
+                if (firstNearbyWifi.positioningData.altitudeMeters != null) {
                     location.altitude =
-                        firstNearbyWifiAccessPoint.positioningData.altitudeMeters.toDouble()
+                        firstNearbyWifi.positioningData.altitudeMeters.toDouble()
                 }
-                if (firstNearbyWifiAccessPoint.positioningData.verticalAccuracyMeters != null) {
+                if (firstNearbyWifi.positioningData.verticalAccuracyMeters != null) {
                     // should be at the 68th percentile confidence level
                     location.verticalAccuracyMeters =
-                        firstNearbyWifiAccessPoint.positioningData.verticalAccuracyMeters * 0.32f
+                        firstNearbyWifi.positioningData.verticalAccuracyMeters * 0.32f
                 }
             }
             location
         }
 
     fun setUpdateTarget(updateTargetElapsedRealtimeNanos: Long) {
-        nearbyWifiAccessPointsPositioningDataRepository.setUpdateTarget(
+        nearbyWifiPositioningDataRepository.setUpdateTarget(
             updateTargetElapsedRealtimeNanos
         )
     }
 
     fun setWorkSource(workSource: WorkSource) {
-        nearbyWifiAccessPointsPositioningDataRepository.setWorkSource(workSource)
+        nearbyWifiPositioningDataRepository.setWorkSource(workSource)
     }
 
     suspend fun clearCaches() {
-        nearbyWifiAccessPointsPositioningDataRepository.clearCaches()
+        nearbyWifiPositioningDataRepository.clearCaches()
     }
 }

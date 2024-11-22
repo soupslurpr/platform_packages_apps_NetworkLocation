@@ -9,13 +9,13 @@ import android.net.wifi.WifiManager
 import android.net.wifi.WifiScanner
 import android.os.Bundle
 import android.os.SystemClock
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.NearbyWifiAccessPointsPositioningDataRepository
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.nearby_wifi_access_points.NearbyWifiAccessPointsRepository
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.nearby_wifi_access_points.data_sources.local.NearbyWifiAccessPointsApiImpl
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.nearby_wifi_access_points.data_sources.local.NearbyWifiAccessPointsLocalDataSource
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.WifiAccessPointsPositioningDataRepository
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.data_sources.server.WifiAccessPointsPositioningDataApiImpl
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.data_sources.server.WifiAccessPointsPositioningDataServerDataSource
+import app.grapheneos.networklocation.wifi.nearby.NearbyWifiRepository
+import app.grapheneos.networklocation.wifi.nearby.data_sources.local.NearbyWifiApiImpl
+import app.grapheneos.networklocation.wifi.nearby.data_sources.local.NearbyWifiLocalDataSource
+import app.grapheneos.networklocation.wifi.nearby_positioning_data.NearbyWifiPositioningDataRepository
+import app.grapheneos.networklocation.wifi.positioning_data.WifiPositioningDataRepository
+import app.grapheneos.networklocation.wifi.positioning_data.data_sources.server.WifiPositioningDataApiImpl
+import app.grapheneos.networklocation.wifi.positioning_data.data_sources.server.WifiPositioningDataServerDataSource
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,19 +30,19 @@ class NetworkLocationProvider(
     private val context: Context,
     private val networkLocationSettingValue: () -> Int,
     private val networkLocationRepository: NetworkLocationRepository = NetworkLocationRepository(
-        nearbyWifiAccessPointsPositioningDataRepository = NearbyWifiAccessPointsPositioningDataRepository(
-            nearbyWifiAccessPointsRepository = NearbyWifiAccessPointsRepository(
-                nearbyWifiAccessPointsLocalDataSource = NearbyWifiAccessPointsLocalDataSource(
-                    nearbyWifiAccessPointsApi = NearbyWifiAccessPointsApiImpl(
+        nearbyWifiPositioningDataRepository = NearbyWifiPositioningDataRepository(
+            nearbyWifiRepository = NearbyWifiRepository(
+                nearbyWifiLocalDataSource = NearbyWifiLocalDataSource(
+                    nearbyWifiApi = NearbyWifiApiImpl(
                         wifiScanner = context.getSystemService(WifiScanner::class.java)!!,
                         wifiManager = context.getSystemService(WifiManager::class.java)!!
                     ),
                     ioDispatcher = Dispatchers.IO
                 )
             ),
-            wifiAccessPointsPositioningDataRepository = WifiAccessPointsPositioningDataRepository(
-                wifiAccessPointsPositioningDataServerDataSource = WifiAccessPointsPositioningDataServerDataSource(
-                    wifiAccessPointsPositioningDataApi = WifiAccessPointsPositioningDataApiImpl(
+            wifiPositioningDataRepository = WifiPositioningDataRepository(
+                wifiPositioningDataServerDataSource = WifiPositioningDataServerDataSource(
+                    wifiPositioningDataApi = WifiPositioningDataApiImpl(
                         networkLocationServerSetting = networkLocationSettingValue
                     ),
                     ioDispatcher = Dispatchers.IO

@@ -1,39 +1,39 @@
-package app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data
+package app.grapheneos.networklocation.wifi.nearby_positioning_data
 
 import android.net.wifi.ScanResult
 import android.os.WorkSource
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.nearby_wifi_access_points.NearbyWifiAccessPointsRepository
-import app.grapheneos.networklocation.nearby_wifi_access_points_positioning_data.wifi_access_points_positioning_data.WifiAccessPointsPositioningDataRepository
+import app.grapheneos.networklocation.wifi.nearby.NearbyWifiRepository
+import app.grapheneos.networklocation.wifi.positioning_data.WifiPositioningDataRepository
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-class NearbyWifiAccessPointsPositioningDataRepository(
-    private val nearbyWifiAccessPointsRepository: NearbyWifiAccessPointsRepository,
-    private val wifiAccessPointsPositioningDataRepository: WifiAccessPointsPositioningDataRepository
+class NearbyWifiPositioningDataRepository(
+    private val nearbyWifiRepository: NearbyWifiRepository,
+    private val wifiPositioningDataRepository: WifiPositioningDataRepository
 ) {
-    private val latestNearbyWifiAccessPointsPositioningDataCacheMutex = Mutex()
+    private val latestNearbyWifiPositioningDataCacheMutex = Mutex()
 
     /** Cache that only keeps BSSIDs that are in the latest scan to prevent storing a location history. */
-    private val latestNearbyWifiAccessPointsPositioningDataCache: MutableList<NearbyWifiAccessPoint> =
+    private val latestNearbyWifiPositioningDataCache: MutableList<NearbyWifi> =
         mutableListOf()
 
     /** Flow that emits nearby Wi-Fi access points positioning data according to the update target. */
-    val latestNearbyWifiAccessPointsPositioningData: Flow<List<NearbyWifiAccessPoint>> =
-        nearbyWifiAccessPointsRepository.latestNearbyWifiAccessPoints
+    val latestPositioningData: Flow<List<NearbyWifi>> =
+        nearbyWifiRepository.latestAccessPoints
             .map { scanResults: List<ScanResult> ->
                 if (scanResults.isEmpty()) {
-                    latestNearbyWifiAccessPointsPositioningDataCacheMutex.withLock {
-                        latestNearbyWifiAccessPointsPositioningDataCache.clear()
+                    latestNearbyWifiPositioningDataCacheMutex.withLock {
+                        latestNearbyWifiPositioningDataCache.clear()
                     }
                     return@map listOf()
                 }
 
                 // only keep cached BSSIDs that are in the latest scan to prevent storing a location history
-                latestNearbyWifiAccessPointsPositioningDataCacheMutex.withLock {
-                    latestNearbyWifiAccessPointsPositioningDataCache.retainAll { cachedAccessPoint ->
+                latestNearbyWifiPositioningDataCacheMutex.withLock {
+                    latestNearbyWifiPositioningDataCache.retainAll { cachedAccessPoint ->
                         scanResults.any { result ->
                             result.BSSID == cachedAccessPoint.bssid
                         }
@@ -41,19 +41,19 @@ class NearbyWifiAccessPointsPositioningDataRepository(
                 }
 
                 val sortedByLevelScanResults = scanResults.sortedByDescending { it.level }
-                val bestNearbyWifiAccessPoints: MutableList<NearbyWifiAccessPoint> =
+                val bestNearbyWifis: MutableList<NearbyWifi> =
                     mutableListOf()
                 for (scanResult in sortedByLevelScanResults) {
                     val cachedNearbyWifiAccessPoint =
-                        latestNearbyWifiAccessPointsPositioningDataCacheMutex.withLock {
-                            latestNearbyWifiAccessPointsPositioningDataCache.firstOrNull { cacheEntry ->
+                        latestNearbyWifiPositioningDataCacheMutex.withLock {
+                            latestNearbyWifiPositioningDataCache.firstOrNull { cacheEntry ->
                                 scanResult.BSSID == cacheEntry.bssid
                             }
                         }
                     if (cachedNearbyWifiAccessPoint != null) {
                         if (cachedNearbyWifiAccessPoint.positioningData != null) {
-                            this.latestNearbyWifiAccessPointsPositioningDataCacheMutex.withLock {
-                                latestNearbyWifiAccessPointsPositioningDataCache.remove(
+                            this.latestNearbyWifiPositioningDataCacheMutex.withLock {
+                                latestNearbyWifiPositioningDataCache.remove(
                                     cachedNearbyWifiAccessPoint
                                 )
                                 val updatedCachedNearbyWifiAccessPoint =
@@ -63,10 +63,10 @@ class NearbyWifiAccessPointsPositioningDataRepository(
                                             lastSeen = scanResult.timestamp
                                         )
                                     )
-                                latestNearbyWifiAccessPointsPositioningDataCache.add(
+                                latestNearbyWifiPositioningDataCache.add(
                                     updatedCachedNearbyWifiAccessPoint
                                 )
-                                bestNearbyWifiAccessPoints.add(updatedCachedNearbyWifiAccessPoint)
+                                bestNearbyWifis.add(updatedCachedNearbyWifiAccessPoint)
                             }
                             break
                         } else {
@@ -77,7 +77,7 @@ class NearbyWifiAccessPointsPositioningDataRepository(
                     }
 
                     val wifiAccessPoint =
-                        wifiAccessPointsPositioningDataRepository.fetchWifiAccessPointsPositioningData(
+                        wifiPositioningDataRepository.fetchPositioningData(
                             listOf(scanResult.BSSID)
                         )
 
@@ -85,13 +85,13 @@ class NearbyWifiAccessPointsPositioningDataRepository(
                         val firstWifiAccessPoint = wifiAccessPoint[0]
                         val firstWifiAccessPointPositioningData =
                             firstWifiAccessPoint.positioningData
-                        val nearbyWifiAccessPoint =
-                            NearbyWifiAccessPoint(
+                        val nearbyWifi =
+                            NearbyWifi(
                                 bssid = firstWifiAccessPoint.bssid,
                                 positioningData = if (firstWifiAccessPointPositioningData == null) {
                                     null
                                 } else {
-                                    NearbyWifiAccessPointPositioningData(
+                                    NearbyWifi.PositioningData(
                                         latitude = firstWifiAccessPointPositioningData.latitude,
                                         longitude = firstWifiAccessPointPositioningData.longitude,
                                         accuracyMeters = firstWifiAccessPointPositioningData.accuracyMeters,
@@ -102,52 +102,52 @@ class NearbyWifiAccessPointsPositioningDataRepository(
                                     )
                                 }
                             )
-                        latestNearbyWifiAccessPointsPositioningDataCacheMutex.withLock {
-                            this.latestNearbyWifiAccessPointsPositioningDataCache.add(
-                                nearbyWifiAccessPoint
+                        latestNearbyWifiPositioningDataCacheMutex.withLock {
+                            this.latestNearbyWifiPositioningDataCache.add(
+                                nearbyWifi
                             )
                         }
                         if (firstWifiAccessPointPositioningData != null) {
-                            bestNearbyWifiAccessPoints.add(nearbyWifiAccessPoint)
+                            bestNearbyWifis.add(nearbyWifi)
                             break
                         }
                     }
                 }
 
-                bestNearbyWifiAccessPoints
+                bestNearbyWifis
             }
 
     fun setUpdateTarget(updateTargetElapsedRealtimeNanos: Long) {
         val timeAllocatedToFetchingPositioningData =
             150.milliseconds.inWholeNanoseconds
-        val nearbyWifiAccessPointsUpdateTarget =
+        val nearbyWifiUpdateTarget =
             updateTargetElapsedRealtimeNanos - timeAllocatedToFetchingPositioningData
-        nearbyWifiAccessPointsRepository.setUpdateTarget(nearbyWifiAccessPointsUpdateTarget)
+        nearbyWifiRepository.setUpdateTarget(nearbyWifiUpdateTarget)
     }
 
     fun setWorkSource(workSource: WorkSource) {
-        nearbyWifiAccessPointsRepository.setWorkSource(workSource)
+        nearbyWifiRepository.setWorkSource(workSource)
     }
 
     suspend fun clearCaches() {
-        latestNearbyWifiAccessPointsPositioningDataCacheMutex.withLock {
-            latestNearbyWifiAccessPointsPositioningDataCache.clear()
+        latestNearbyWifiPositioningDataCacheMutex.withLock {
+            latestNearbyWifiPositioningDataCache.clear()
         }
     }
 }
 
-data class NearbyWifiAccessPoint(
+data class NearbyWifi(
     val bssid: String,
-    val positioningData: NearbyWifiAccessPointPositioningData?
-)
-
-data class NearbyWifiAccessPointPositioningData(
-    val latitude: Double,
-    val longitude: Double,
-    var accuracyMeters: Long,
-    val rssi: Int,
-    val altitudeMeters: Long?,
-    val verticalAccuracyMeters: Long?,
-    /** timestamp in microseconds (since boot) when this result was last seen. */
-    val lastSeen: Long
-)
+    val positioningData: PositioningData?
+) {
+    data class PositioningData(
+        val latitude: Double,
+        val longitude: Double,
+        var accuracyMeters: Long,
+        val rssi: Int,
+        val altitudeMeters: Long?,
+        val verticalAccuracyMeters: Long?,
+        /** timestamp in microseconds (since boot) when this result was last seen. */
+        val lastSeen: Long
+    )
+}
