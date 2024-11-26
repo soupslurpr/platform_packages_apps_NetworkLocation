@@ -28,11 +28,11 @@ class NearbyWifiApiImpl(
 
         // TODO: can use more time-consuming settings if we have enough time
         val scanSettings = WifiScanner.ScanSettings()
-        scanSettings.band = WifiScanner.WIFI_BAND_5_GHZ
+        scanSettings.band = WifiScanner.WIFI_BAND_BOTH
         scanSettings.type = WifiScanner.SCAN_TYPE_LOW_LATENCY
         scanSettings.rnrSetting = WifiScanner.WIFI_RNR_NOT_NEEDED
-        // estimated scanning duration for 5 GHz only
-        val estimatedScanningDuration = 1000.milliseconds
+        // estimated scanning duration for WifiScanner.WIFI_BAND_BOTH
+        val estimatedScanningDuration = 2100.milliseconds
         delay(
             (updateTargetElapsedRealtimeNanos - SystemClock.elapsedRealtimeNanos()).nanoseconds - estimatedScanningDuration
         )
