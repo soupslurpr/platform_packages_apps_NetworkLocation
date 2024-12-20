@@ -2,9 +2,12 @@
 <permissions>
     <privapp-permissions package="app.grapheneos.networklocation">
         <permission name="android.permission.INSTALL_LOCATION_PROVIDER" />
+        <permission name="android.permission.ACCESS_COARSE_LOCATION" />
+        <permission name="android.permission.ACCESS_FINE_LOCATION" />
+        <permission name="android.permission.ACCESS_BACKGROUND_LOCATION" />
         <permission name="android.permission.UPDATE_DEVICE_STATS" />
         <permission name="android.permission.LOCATION_HARDWARE" />
-        <permission name="android.permission.NETWORK_STACK" />
+        <permission name="android.permission.INTERACT_ACROSS_USERS" />
 
     </privapp-permissions>
 </permissions>
