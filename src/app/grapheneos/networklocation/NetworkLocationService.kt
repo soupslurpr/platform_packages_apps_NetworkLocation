@@ -2,13 +2,11 @@ package app.grapheneos.networklocation
 
 import android.app.Service
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.ext.settings.NetworkLocationSettings
 import android.location.provider.ProviderRequest
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.UserManager
 
 /**
  * The network location service.
@@ -30,12 +28,6 @@ class NetworkLocationService : Service() {
     }
 
     override fun onCreate() {
-        if (!applicationContext.getSystemService(UserManager::class.java)!!.isSystemUser) {
-            applicationContext.packageManager.setApplicationEnabledSetting(
-                applicationContext.packageName,
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED, 0
-            )
-        }
         provider = NetworkLocationProvider(
             context = this,
             networkLocationSettingValue = networkLocationSettingValue
