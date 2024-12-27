@@ -46,6 +46,7 @@ class NetworkLocationService : Service() {
         ) {
             networkLocationSettingValue()
         }
+        networkLocationSettingValue()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
