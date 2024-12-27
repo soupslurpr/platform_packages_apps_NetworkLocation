@@ -36,25 +36,19 @@ class NetworkLocationService : Service() {
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED, 0
             )
         }
+        provider = NetworkLocationProvider(
+            context = this,
+            networkLocationSettingValue = networkLocationSettingValue
+        )
+        networkLocationSettingObserver = networkLocationSetting.registerObserver(
+            this,
+            Handler(Looper.getMainLooper())
+        ) {
+            networkLocationSettingValue()
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? {
-        if (provider == null) {
-            provider = NetworkLocationProvider(
-                context = this,
-                networkLocationSettingValue = networkLocationSettingValue
-            )
-        }
-        if (networkLocationSettingObserver == null) {
-            networkLocationSettingObserver =
-                networkLocationSetting.registerObserver(
-                    this,
-                    Handler(Looper.getMainLooper())
-                ) {
-                    networkLocationSettingValue()
-                }
-        }
-
         return provider?.binder
     }
 
