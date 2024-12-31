@@ -5,11 +5,11 @@ import android.location.LocationManager
 import android.os.SystemClock
 import android.os.WorkSource
 import app.grapheneos.networklocation.wifi.nearby_positioning_data.NearbyWifiPositioningDataRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlin.math.pow
 import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Duration.Companion.nanoseconds
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 /**
  * NetworkLocationRepository combines multiple network location sources to achieve the best network
@@ -59,12 +59,6 @@ class NetworkLocationRepository(
             }
             location
         }
-
-    fun setUpdateTarget(updateTargetElapsedRealtimeNanos: Long) {
-        nearbyWifiPositioningDataRepository.setUpdateTarget(
-            updateTargetElapsedRealtimeNanos
-        )
-    }
 
     fun setWorkSource(workSource: WorkSource) {
         nearbyWifiPositioningDataRepository.setWorkSource(workSource)

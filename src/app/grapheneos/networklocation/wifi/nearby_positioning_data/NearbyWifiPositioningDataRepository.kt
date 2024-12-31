@@ -2,9 +2,9 @@ package app.grapheneos.networklocation.wifi.nearby_positioning_data
 
 import android.net.wifi.ScanResult
 import android.os.WorkSource
+import android.util.Log
 import app.grapheneos.networklocation.wifi.nearby.NearbyWifiRepository
 import app.grapheneos.networklocation.wifi.positioning_data.WifiPositioningDataRepository
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -20,7 +20,7 @@ class NearbyWifiPositioningDataRepository(
     private val latestNearbyWifiPositioningDataCache: MutableList<NearbyWifi> =
         mutableListOf()
 
-    /** Flow that emits nearby Wi-Fi access points positioning data according to the update target. */
+    /** Flow that emits nearby Wi-Fi access points positioning data. */
     val latestPositioningData: Flow<List<NearbyWifi>> =
         nearbyWifiRepository.latestAccessPoints
             .map { scanResults: List<ScanResult> ->
@@ -76,6 +76,11 @@ class NearbyWifiPositioningDataRepository(
                         }
                     }
 
+                    Log.v(
+                        "NearbyWifiPositioningDataRepository",
+                        "requested positioning data for unknown access point: ${scanResult.BSSID}"
+                    )
+
                     val wifiAccessPoint =
                         wifiPositioningDataRepository.fetchPositioningData(
                             listOf(scanResult.BSSID)
@@ -116,14 +121,6 @@ class NearbyWifiPositioningDataRepository(
 
                 bestNearbyWifis
             }
-
-    fun setUpdateTarget(updateTargetElapsedRealtimeNanos: Long) {
-        val timeAllocatedToFetchingPositioningData =
-            150.milliseconds.inWholeNanoseconds
-        val nearbyWifiUpdateTarget =
-            updateTargetElapsedRealtimeNanos - timeAllocatedToFetchingPositioningData
-        nearbyWifiRepository.setUpdateTarget(nearbyWifiUpdateTarget)
-    }
 
     fun setWorkSource(workSource: WorkSource) {
         nearbyWifiRepository.setWorkSource(workSource)

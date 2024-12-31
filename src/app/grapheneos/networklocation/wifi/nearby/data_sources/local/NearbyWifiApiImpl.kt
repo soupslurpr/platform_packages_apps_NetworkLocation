@@ -4,38 +4,26 @@ import android.net.wifi.ScanResult
 import android.net.wifi.WifiManager
 import android.net.wifi.WifiScanner
 import android.net.wifi.WifiScanner.ScanListener
-import android.os.SystemClock
 import android.os.WorkSource
 import android.util.Log
-import kotlin.coroutines.resume
-import kotlin.properties.Delegates
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.nanoseconds
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 class NearbyWifiApiImpl(
     private val wifiScanner: WifiScanner,
     private val wifiManager: WifiManager
 ) : NearbyWifiApi {
-    private var updateTargetElapsedRealtimeNanos by Delegates.notNull<Long>()
     private lateinit var workSource: WorkSource
 
-    override suspend fun fetchFreshestNearbyWifi(): MutableList<ScanResult>? {
+    override suspend fun fetchNearbyWifi(): MutableList<ScanResult>? {
         if (!wifiManager.isWifiScannerSupported && !(wifiManager.isWifiEnabled || wifiManager.isScanAlwaysAvailable)) {
             return null
         }
 
-        // TODO: can use more time-consuming settings if we have enough time
         val scanSettings = WifiScanner.ScanSettings()
         scanSettings.band = WifiScanner.WIFI_BAND_BOTH
         scanSettings.type = WifiScanner.SCAN_TYPE_LOW_LATENCY
         scanSettings.rnrSetting = WifiScanner.WIFI_RNR_NOT_NEEDED
-        // estimated scanning duration for WifiScanner.WIFI_BAND_BOTH
-        val estimatedScanningDuration = 2100.milliseconds
-        delay(
-            (updateTargetElapsedRealtimeNanos - SystemClock.elapsedRealtimeNanos()).nanoseconds - estimatedScanningDuration
-        )
 
         return suspendCancellableCoroutine { continuation ->
             val scanListener = object : ScanListener {
@@ -73,11 +61,6 @@ class NearbyWifiApiImpl(
 
             continuation.invokeOnCancellation { wifiScanner.stopScan(scanListener) }
         }
-    }
-
-    override fun setUpdateTarget(updateTargetElapsedRealtimeNanos: Long) {
-        this@NearbyWifiApiImpl.updateTargetElapsedRealtimeNanos =
-            updateTargetElapsedRealtimeNanos
     }
 
     override fun setWorkSource(workSource: WorkSource) {

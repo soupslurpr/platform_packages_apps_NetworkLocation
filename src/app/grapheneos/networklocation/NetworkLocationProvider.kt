@@ -16,8 +16,6 @@ import app.grapheneos.networklocation.wifi.nearby_positioning_data.NearbyWifiPos
 import app.grapheneos.networklocation.wifi.positioning_data.WifiPositioningDataRepository
 import app.grapheneos.networklocation.wifi.positioning_data.data_sources.server.WifiPositioningDataApiImpl
 import app.grapheneos.networklocation.wifi.positioning_data.data_sources.server.WifiPositioningDataServerDataSource
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.nanoseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,6 +23,8 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
 
 class NetworkLocationProvider(
     private val context: Context,
@@ -70,19 +70,17 @@ class NetworkLocationProvider(
 
         if (request.isActive && isAllowed) {
             val isBatching =
-                (request.maxUpdateDelayMillis != 0L) && (request.maxUpdateDelayMillis >= (request.intervalMillis * 2))
+                (request.maxUpdateDelayMillis != 0L) &&
+                        (request.maxUpdateDelayMillis >= (request.intervalMillis * 2))
             networkLocationRepository.setWorkSource(request.workSource)
 
             reportLocationJob = reportLocationCoroutine.launch {
-                var updateTargetElapsedRealtimeNanos =
-                    SystemClock.elapsedRealtimeNanos() + request.intervalMillis.milliseconds.inWholeNanoseconds
-                networkLocationRepository.setUpdateTarget(updateTargetElapsedRealtimeNanos)
+                var delayNextCollectionElapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
 
                 networkLocationRepository.latestLocation.collect { location ->
-                    delay((updateTargetElapsedRealtimeNanos - SystemClock.elapsedRealtimeNanos()).nanoseconds.inWholeMilliseconds)
-                    updateTargetElapsedRealtimeNanos =
-                        SystemClock.elapsedRealtimeNanos() + request.intervalMillis.milliseconds.inWholeNanoseconds
-                    networkLocationRepository.setUpdateTarget(updateTargetElapsedRealtimeNanos)
+                    delayNextCollectionElapsedRealtimeNanos +=
+                        request.intervalMillis.milliseconds.inWholeNanoseconds
+
                     if (location != null) {
                         if (isBatching) {
                             batchedLocations.add(location)
@@ -94,6 +92,10 @@ class NetworkLocationProvider(
                             reportLocation(location)
                         }
                     }
+                    delay(
+                        (delayNextCollectionElapsedRealtimeNanos -
+                                SystemClock.elapsedRealtimeNanos()).nanoseconds.inWholeMilliseconds
+                    )
                 }
             }
         } else {

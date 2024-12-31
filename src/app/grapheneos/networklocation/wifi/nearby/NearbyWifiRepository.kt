@@ -11,9 +11,6 @@ class NearbyWifiRepository(
     val latestAccessPoints: Flow<List<ScanResult>> =
         nearbyWifiLocalDataSource.latestAccessPoints
 
-    fun setUpdateTarget(updateTargetElapsedRealtimeNanos: Long) =
-        nearbyWifiLocalDataSource.setUpdateTarget(updateTargetElapsedRealtimeNanos)
-
     fun setWorkSource(workSource: WorkSource) =
         nearbyWifiLocalDataSource.setWorkSource(workSource)
 }
