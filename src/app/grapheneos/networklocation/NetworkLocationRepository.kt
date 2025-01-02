@@ -19,7 +19,7 @@ class NetworkLocationRepository(
     private val nearbyWifiPositioningDataRepository: NearbyWifiPositioningDataRepository
 ) {
     val latestLocation: Flow<Location?> =
-        nearbyWifiPositioningDataRepository.latestPositioningData.map { nearbyWifiPositioningData ->
+        nearbyWifiPositioningDataRepository.latestNearbyWifisWithPositioningData.map { nearbyWifiPositioningData ->
             var location: Location? = null
             val firstNearbyWifi = nearbyWifiPositioningData.getOrNull(0)
             if (firstNearbyWifi?.positioningData != null) {

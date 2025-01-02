@@ -14,26 +14,26 @@ class NearbyWifiPositioningDataRepository(
     private val nearbyWifiRepository: NearbyWifiRepository,
     private val wifiPositioningDataRepository: WifiPositioningDataRepository
 ) {
-    private val latestNearbyWifiPositioningDataCacheMutex = Mutex()
+    private val latestNearbyWifiCacheMutex = Mutex()
 
     /** Cache that only keeps BSSIDs that are in the latest scan to prevent storing a location history. */
-    private val latestNearbyWifiPositioningDataCache: MutableList<NearbyWifi> =
+    private val latestNearbyWifiCache: MutableList<NearbyWifi> =
         mutableListOf()
 
-    /** Flow that emits nearby Wi-Fi access points positioning data. */
-    val latestPositioningData: Flow<List<NearbyWifi>> =
+    /** Flow that emits nearby Wi-Fi access points with positioning data. */
+    val latestNearbyWifisWithPositioningData: Flow<List<NearbyWifi>> =
         nearbyWifiRepository.latestAccessPoints
             .map { scanResults: List<ScanResult> ->
                 if (scanResults.isEmpty()) {
-                    latestNearbyWifiPositioningDataCacheMutex.withLock {
-                        latestNearbyWifiPositioningDataCache.clear()
+                    latestNearbyWifiCacheMutex.withLock {
+                        latestNearbyWifiCache.clear()
                     }
                     return@map listOf()
                 }
 
                 // only keep cached BSSIDs that are in the latest scan to prevent storing a location history
-                latestNearbyWifiPositioningDataCacheMutex.withLock {
-                    latestNearbyWifiPositioningDataCache.retainAll { cachedAccessPoint ->
+                latestNearbyWifiCacheMutex.withLock {
+                    latestNearbyWifiCache.retainAll { cachedAccessPoint ->
                         scanResults.any { result ->
                             result.BSSID == cachedAccessPoint.bssid
                         }
@@ -44,26 +44,26 @@ class NearbyWifiPositioningDataRepository(
                 val bestNearbyWifis: MutableList<NearbyWifi> =
                     mutableListOf()
                 for (scanResult in sortedByLevelScanResults) {
-                    val cachedNearbyWifiAccessPoint =
-                        latestNearbyWifiPositioningDataCacheMutex.withLock {
-                            latestNearbyWifiPositioningDataCache.firstOrNull { cacheEntry ->
+                    val cachedNearbyWifi =
+                        latestNearbyWifiCacheMutex.withLock {
+                            latestNearbyWifiCache.firstOrNull { cacheEntry ->
                                 scanResult.BSSID == cacheEntry.bssid
                             }
                         }
-                    if (cachedNearbyWifiAccessPoint != null) {
-                        if (cachedNearbyWifiAccessPoint.positioningData != null) {
-                            this.latestNearbyWifiPositioningDataCacheMutex.withLock {
-                                latestNearbyWifiPositioningDataCache.remove(
-                                    cachedNearbyWifiAccessPoint
+                    if (cachedNearbyWifi != null) {
+                        if (cachedNearbyWifi.positioningData != null) {
+                            this.latestNearbyWifiCacheMutex.withLock {
+                                latestNearbyWifiCache.remove(
+                                    cachedNearbyWifi
                                 )
                                 val updatedCachedNearbyWifiAccessPoint =
-                                    cachedNearbyWifiAccessPoint.copy(
-                                        positioningData = cachedNearbyWifiAccessPoint.positioningData.copy(
+                                    cachedNearbyWifi.copy(
+                                        positioningData = cachedNearbyWifi.positioningData.copy(
                                             rssi = scanResult.level,
                                             lastSeen = scanResult.timestamp
                                         )
                                     )
-                                latestNearbyWifiPositioningDataCache.add(
+                                latestNearbyWifiCache.add(
                                     updatedCachedNearbyWifiAccessPoint
                                 )
                                 bestNearbyWifis.add(updatedCachedNearbyWifiAccessPoint)
@@ -81,38 +81,38 @@ class NearbyWifiPositioningDataRepository(
                         "requested positioning data for unknown access point: ${scanResult.BSSID}"
                     )
 
-                    val wifiAccessPoint =
+                    val wifiPositioningData =
                         wifiPositioningDataRepository.fetchPositioningData(
                             listOf(scanResult.BSSID)
                         )
 
-                    if (!wifiAccessPoint.isNullOrEmpty()) {
-                        val firstWifiAccessPoint = wifiAccessPoint[0]
-                        val firstWifiAccessPointPositioningData =
-                            firstWifiAccessPoint.positioningData
+                    if (!wifiPositioningData.isNullOrEmpty()) {
+                        val firstWifi = wifiPositioningData[0]
+                        val firstWifiPositioningData =
+                            firstWifi.positioningData
                         val nearbyWifi =
                             NearbyWifi(
-                                bssid = firstWifiAccessPoint.bssid,
-                                positioningData = if (firstWifiAccessPointPositioningData == null) {
+                                bssid = firstWifi.bssid,
+                                positioningData = if (firstWifiPositioningData == null) {
                                     null
                                 } else {
                                     NearbyWifi.PositioningData(
-                                        latitude = firstWifiAccessPointPositioningData.latitude,
-                                        longitude = firstWifiAccessPointPositioningData.longitude,
-                                        accuracyMeters = firstWifiAccessPointPositioningData.accuracyMeters,
+                                        latitude = firstWifiPositioningData.latitude,
+                                        longitude = firstWifiPositioningData.longitude,
+                                        accuracyMeters = firstWifiPositioningData.accuracyMeters,
                                         rssi = scanResult.level,
-                                        altitudeMeters = firstWifiAccessPointPositioningData.altitudeMeters,
-                                        verticalAccuracyMeters = firstWifiAccessPointPositioningData.verticalAccuracyMeters,
+                                        altitudeMeters = firstWifiPositioningData.altitudeMeters,
+                                        verticalAccuracyMeters = firstWifiPositioningData.verticalAccuracyMeters,
                                         lastSeen = scanResult.timestamp
                                     )
                                 }
                             )
-                        latestNearbyWifiPositioningDataCacheMutex.withLock {
-                            this.latestNearbyWifiPositioningDataCache.add(
+                        latestNearbyWifiCacheMutex.withLock {
+                            this.latestNearbyWifiCache.add(
                                 nearbyWifi
                             )
                         }
-                        if (firstWifiAccessPointPositioningData != null) {
+                        if (firstWifiPositioningData != null) {
                             bestNearbyWifis.add(nearbyWifi)
                             break
                         }
@@ -127,8 +127,8 @@ class NearbyWifiPositioningDataRepository(
     }
 
     suspend fun clearCaches() {
-        latestNearbyWifiPositioningDataCacheMutex.withLock {
-            latestNearbyWifiPositioningDataCache.clear()
+        latestNearbyWifiCacheMutex.withLock {
+            latestNearbyWifiCache.clear()
         }
     }
 }
