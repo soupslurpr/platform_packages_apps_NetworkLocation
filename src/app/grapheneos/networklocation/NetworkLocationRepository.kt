@@ -25,7 +25,7 @@ class NetworkLocationRepository(
             if (firstNearbyWifi?.positioningData != null) {
                 location = Location(LocationManager.NETWORK_PROVIDER)
                 location.elapsedRealtimeNanos =
-                    firstNearbyWifi.positioningData.lastSeen.microseconds.inWholeNanoseconds
+                    firstNearbyWifi.lastSeen.microseconds.inWholeNanoseconds
                 location.time =
                     (System.currentTimeMillis() - SystemClock.elapsedRealtimeNanos().nanoseconds.inWholeMilliseconds) + location.elapsedRealtimeNanos.nanoseconds.inWholeMilliseconds
                 location.longitude = firstNearbyWifi.positioningData.longitude
