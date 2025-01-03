@@ -7,7 +7,6 @@
         <permission name="android.permission.ACCESS_BACKGROUND_LOCATION" />
         <permission name="android.permission.UPDATE_DEVICE_STATS" />
         <permission name="android.permission.LOCATION_HARDWARE" />
-        <!--        <permission name="android.permission.INTERACT_ACROSS_USERS" />-->
 
     </privapp-permissions>
 </permissions>
