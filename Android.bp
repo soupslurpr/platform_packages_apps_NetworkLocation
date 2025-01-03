@@ -18,13 +18,23 @@ android_app {
         "com.android.location.provider.impl",
     ],
 
-    required: ["privapp_whitelist_app.grapheneos.networklocation"],
+    required: [
+        "preinstalled-packages_app.grapheneos.networklocation.xml",
+        "privapp_whitelist_app.grapheneos.networklocation.xml",
+    ],
 }
 
 prebuilt_etc {
-    name: "privapp_whitelist_app.grapheneos.networklocation",
+    name: "preinstalled-packages_app.grapheneos.networklocation.xml",
+    src: "preinstalled-packages_app.grapheneos.networklocation.xml",
+    sub_dir: "sysconfig",
     system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "privapp_whitelist_app.grapheneos.networklocation.xml",
     src: "privapp_whitelist_app.grapheneos.networklocation.xml",
     sub_dir: "permissions",
+    system_ext_specific: true,
     filename_from_src: true,
 }
