@@ -1,5 +1,0 @@
-<config>
-    <install-in-user-type package="app.grapheneos.networklocation">
-        <install-in user-type="SYSTEM" />
-    </install-in-user-type>
-</config>

@@ -19,16 +19,8 @@ android_app {
     ],
 
     required: [
-        "preinstalled-packages_app.grapheneos.networklocation.xml",
         "privapp_whitelist_app.grapheneos.networklocation.xml",
     ],
-}
-
-prebuilt_etc {
-    name: "preinstalled-packages_app.grapheneos.networklocation.xml",
-    src: "preinstalled-packages_app.grapheneos.networklocation.xml",
-    sub_dir: "sysconfig",
-    system_ext_specific: true,
 }
 
 prebuilt_etc {
