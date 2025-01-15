@@ -2,6 +2,7 @@ package app.grapheneos.networklocation.wifi.positioning_data.data_sources.server
 
 import android.ext.settings.NetworkLocationSettings
 import android.util.Log
+import app.grapheneos.networklocation.misc.RustyResult
 import java.io.IOException
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
@@ -9,7 +10,7 @@ import javax.net.ssl.HttpsURLConnection
 class WifiPositioningDataApiImpl(
     private val networkLocationServerSetting: () -> Int
 ) : WifiPositioningDataApi {
-    override fun fetchPositioningData(wifiAccessPointsBssid: List<String>): AppleWps.WifiPositioningDataApiModel? {
+    override fun fetchPositioningData(wifiAccessPointsBssid: List<String>): RustyResult<AppleWps.WifiPositioningDataApiModel, WifiPositioningDataApi.FetchPositioningDataError> {
         try {
             val url = URL(
                 when (networkLocationServerSetting()) {
@@ -22,7 +23,7 @@ class WifiPositioningDataApiImpl(
                     }
 
                     else -> {
-                        return null
+                        return RustyResult.Err(WifiPositioningDataApi.FetchPositioningDataError.Unavailable)
                     }
                 }
             )
@@ -70,7 +71,7 @@ class WifiPositioningDataApiImpl(
                                 inputStream
                             )
 
-                        return successfulResponse
+                        return RustyResult.Ok(successfulResponse)
                     }
                 } else {
                     throw RuntimeException("Response code is $responseCode, not 200 (OK)")
@@ -80,20 +81,22 @@ class WifiPositioningDataApiImpl(
             }
         } catch (e: Exception) {
             when (e) {
-                is RuntimeException, is IOException -> Log.e(
-                    TAG,
-                    "Failed to fetch Wi-Fi access points positioning data",
-                    e
-                )
+                is RuntimeException, is IOException -> {
+                    Log.e(
+                        TAG,
+                        "Failed to fetch Wi-Fi access points positioning data",
+                        e
+                    )
+                    return RustyResult.Err(WifiPositioningDataApi.FetchPositioningDataError.Failure)
+                }
 
                 else -> throw e
             }
         }
-        return null
     }
 
     companion object {
-        const val TAG: String = "WifiAccessPointsPositioningDataApiImpl"
+        const val TAG: String = "WifiPositioningDataApiImpl"
     }
 }
 

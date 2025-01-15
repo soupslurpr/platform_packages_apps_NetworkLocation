@@ -4,6 +4,7 @@ import android.net.wifi.ScanResult
 import android.os.SystemClock
 import android.os.WorkSource
 import android.util.Log
+import app.grapheneos.networklocation.misc.RustyResult
 import app.grapheneos.networklocation.wifi.nearby.NearbyWifiRepository
 import app.grapheneos.networklocation.wifi.positioning_data.WifiPositioningDataRepository
 import kotlinx.coroutines.flow.Flow
@@ -21,17 +22,38 @@ class NearbyWifiPositioningDataRepository(
     private val latestNearbyWifiCacheMutex = Mutex()
 
     /**
-     * In-memory cache that stores nearby Wi-Fi access points. It's checked after every scan to
-     * ensure that it only stores BSSIDs seen in the last 5 minutes, preventing the storage of a
-     * long location history.
+     * In-memory cache that stores nearby Wi-Fi access points. It's checked after every successful
+     * scan to ensure that it only stores BSSIDs seen in the last 5 minutes or the last successful
+     * scan, preventing the storage of a long location history.
      */
     private val latestNearbyWifiCache: MutableList<NearbyWifi> =
         mutableListOf()
 
+    sealed class LatestNearbyWifiWithPositioningDataError {
+        data object Failure : LatestNearbyWifiWithPositioningDataError()
+        data object Unavailable : LatestNearbyWifiWithPositioningDataError()
+    }
+
     /** Flow that emits nearby Wi-Fi access points with positioning data. */
-    val latestNearbyWifisWithPositioningData: Flow<List<NearbyWifi>> =
-        nearbyWifiRepository.latestAccessPoints
-            .map { scanResults: List<ScanResult> ->
+    val latestNearbyWifiWithPositioningData: Flow<RustyResult<List<NearbyWifi>, LatestNearbyWifiWithPositioningDataError>> =
+        nearbyWifiRepository.latestNearbyWifi
+            .map { result: RustyResult<List<ScanResult>, NearbyWifiRepository.LatestNearbyWifiError> ->
+                val scanResults = when (result) {
+                    is RustyResult.Err -> {
+                        return@map when (result.error) {
+                            NearbyWifiRepository.LatestNearbyWifiError.Failure -> RustyResult.Err(
+                                LatestNearbyWifiWithPositioningDataError.Failure
+                            )
+
+                            NearbyWifiRepository.LatestNearbyWifiError.Unavailable -> RustyResult.Err(
+                                LatestNearbyWifiWithPositioningDataError.Unavailable
+                            )
+                        }
+                    }
+
+                    is RustyResult.Ok -> result.value
+                }
+
                 val sortedByLevelScanResults = scanResults.sortedByDescending { it.level }
                 val bestNearbyWifis: MutableList<NearbyWifi> =
                     mutableListOf()
@@ -89,34 +111,48 @@ class NearbyWifiPositioningDataRepository(
                             listOf(scanResult.BSSID)
                         )
 
-                    if (!wifiPositioningData.isNullOrEmpty()) {
-                        val firstWifi = wifiPositioningData[0]
-                        val firstWifiPositioningData =
-                            firstWifi.positioningData
-                        val nearbyWifi =
-                            NearbyWifi(
-                                bssid = firstWifi.bssid,
-                                positioningData = if (firstWifiPositioningData == null) {
-                                    null
-                                } else {
-                                    NearbyWifi.PositioningData(
-                                        latitude = firstWifiPositioningData.latitude,
-                                        longitude = firstWifiPositioningData.longitude,
-                                        accuracyMeters = firstWifiPositioningData.accuracyMeters,
-                                        rssi = scanResult.level,
-                                        altitudeMeters = firstWifiPositioningData.altitudeMeters,
-                                        verticalAccuracyMeters = firstWifiPositioningData.verticalAccuracyMeters
-                                    )
-                                },
-                                lastSeen = scanResult.timestamp
+                    when (wifiPositioningData) {
+                        is RustyResult.Err -> return@map when (wifiPositioningData.error) {
+                            WifiPositioningDataRepository.FetchPositioningDataError.Failure -> RustyResult.Err(
+                                LatestNearbyWifiWithPositioningDataError.Failure
                             )
-                        latestNearbyWifiCacheMutex.withLock {
-                            this.latestNearbyWifiCache.add(
-                                nearbyWifi
+
+                            WifiPositioningDataRepository.FetchPositioningDataError.Unavailable -> RustyResult.Err(
+                                LatestNearbyWifiWithPositioningDataError.Unavailable
                             )
                         }
-                        if (firstWifiPositioningData != null) {
-                            bestNearbyWifis.add(nearbyWifi)
+
+                        is RustyResult.Ok -> {
+                            if (wifiPositioningData.value.isNotEmpty()) {
+                                val firstWifi = wifiPositioningData.value[0]
+                                val firstWifiPositioningData =
+                                    firstWifi.positioningData
+                                val nearbyWifi =
+                                    NearbyWifi(
+                                        bssid = firstWifi.bssid,
+                                        positioningData = if (firstWifiPositioningData == null) {
+                                            null
+                                        } else {
+                                            NearbyWifi.PositioningData(
+                                                latitude = firstWifiPositioningData.latitude,
+                                                longitude = firstWifiPositioningData.longitude,
+                                                accuracyMeters = firstWifiPositioningData.accuracyMeters,
+                                                rssi = scanResult.level,
+                                                altitudeMeters = firstWifiPositioningData.altitudeMeters,
+                                                verticalAccuracyMeters = firstWifiPositioningData.verticalAccuracyMeters
+                                            )
+                                        },
+                                        lastSeen = scanResult.timestamp
+                                    )
+                                latestNearbyWifiCacheMutex.withLock {
+                                    this.latestNearbyWifiCache.add(
+                                        nearbyWifi
+                                    )
+                                }
+                                if (firstWifiPositioningData != null) {
+                                    bestNearbyWifis.add(nearbyWifi)
+                                }
+                            }
                         }
                     }
                 }
@@ -132,7 +168,7 @@ class NearbyWifiPositioningDataRepository(
                     }
                 }
 
-                bestNearbyWifis
+                RustyResult.Ok(bestNearbyWifis)
             }
 
     fun setWorkSource(workSource: WorkSource) {

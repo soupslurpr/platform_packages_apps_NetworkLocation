@@ -9,6 +9,10 @@ import android.net.wifi.WifiManager
 import android.net.wifi.WifiScanner
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
+import app.grapheneos.networklocation.NetworkLocationRepository.LatestLocationError
+import app.grapheneos.networklocation.misc.ExponentialBackOff
+import app.grapheneos.networklocation.misc.RustyResult
 import app.grapheneos.networklocation.wifi.nearby.NearbyWifiRepository
 import app.grapheneos.networklocation.wifi.nearby.data_sources.local.NearbyWifiApiImpl
 import app.grapheneos.networklocation.wifi.nearby.data_sources.local.NearbyWifiLocalDataSource
@@ -60,6 +64,8 @@ class NetworkLocationProvider(
     private var reportLocationJob: Job? = null
     private val reportLocationCoroutine = CoroutineScope(Dispatchers.IO)
 
+    private val locationRetryExponentialBackOff = ExponentialBackOff()
+
     override fun onSetRequest(request: ProviderRequest) {
         runBlocking {
             if (reportLocationJob?.isActive == true) {
@@ -68,6 +74,8 @@ class NetworkLocationProvider(
             batchedLocations.clear()
         }
 
+        Log.v(TAG, request.toString())
+
         if (request.isActive && isAllowed) {
             val isBatching =
                 (request.maxUpdateDelayMillis != 0L) &&
@@ -75,27 +83,59 @@ class NetworkLocationProvider(
             networkLocationRepository.setWorkSource(request.workSource)
 
             reportLocationJob = reportLocationCoroutine.launch {
-                var delayNextCollectionElapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+                // Make sure apps can't bypass the retry exponential back off by spamming requests.
+                if (locationRetryExponentialBackOff.currentDuration > locationRetryExponentialBackOff.initialDuration) {
+                    delay(locationRetryExponentialBackOff.currentDuration)
+                    locationRetryExponentialBackOff.advance()
+                }
+
+                var delayNextLocationRetryElapsedRealtime =
+                    SystemClock.elapsedRealtimeNanos().nanoseconds
 
                 networkLocationRepository.latestLocation.collect { location ->
-                    delayNextCollectionElapsedRealtimeNanos +=
-                        request.intervalMillis.milliseconds.inWholeNanoseconds
+                    var delayNextLocationRetryAddend = request.intervalMillis.milliseconds
 
-                    if (location != null) {
-                        if (isBatching) {
-                            batchedLocations.add(location)
-                            val maxBatchSize = request.maxUpdateDelayMillis / request.intervalMillis
-                            if (batchedLocations.size >= maxBatchSize) {
-                                reportLocations(batchedLocations)
+                    when (location) {
+                        is RustyResult.Err -> when (location.error) {
+                            LatestLocationError.Failure, LatestLocationError.Unavailable -> {
+                                val delayTime =
+                                    (delayNextLocationRetryElapsedRealtime + delayNextLocationRetryAddend) -
+                                            SystemClock.elapsedRealtimeNanos().nanoseconds
+                                if (delayTime < locationRetryExponentialBackOff.currentDuration) {
+                                    delayNextLocationRetryElapsedRealtime =
+                                        SystemClock.elapsedRealtimeNanos().nanoseconds
+                                    delayNextLocationRetryAddend =
+                                        locationRetryExponentialBackOff.currentDuration
+                                }
+                                locationRetryExponentialBackOff.advance()
                             }
-                        } else {
-                            reportLocation(location)
+                        }
+
+                        is RustyResult.Ok -> {
+                            locationRetryExponentialBackOff.reset()
+                            if (location.value != null) {
+                                if (isBatching) {
+                                    batchedLocations.add(location.value)
+                                    val maxBatchSize =
+                                        request.maxUpdateDelayMillis / request.intervalMillis
+                                    if (batchedLocations.size >= maxBatchSize) {
+                                        reportLocations(batchedLocations)
+                                    }
+                                } else {
+                                    reportLocation(location.value)
+                                }
+                            }
                         }
                     }
+
+                    delayNextLocationRetryElapsedRealtime += delayNextLocationRetryAddend
+
                     delay(
-                        (delayNextCollectionElapsedRealtimeNanos -
-                                SystemClock.elapsedRealtimeNanos()).nanoseconds.inWholeMilliseconds
+                        delayNextLocationRetryElapsedRealtime - SystemClock.elapsedRealtimeNanos().nanoseconds
                     )
+
+                    delayNextLocationRetryElapsedRealtime =
+                        SystemClock.elapsedRealtimeNanos().nanoseconds
                 }
             }
         } else {

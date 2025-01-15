@@ -1,5 +1,6 @@
 package app.grapheneos.networklocation.wifi.positioning_data.data_sources.server
 
+import app.grapheneos.networklocation.misc.RustyResult
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
@@ -16,7 +17,12 @@ class WifiPositioningDataServerDataSource(
 }
 
 interface WifiPositioningDataApi {
-    fun fetchPositioningData(wifiAccessPointsBssid: List<String>): AppleWps.WifiPositioningDataApiModel?
+    sealed class FetchPositioningDataError {
+        data object Failure : FetchPositioningDataError()
+        data object Unavailable : FetchPositioningDataError()
+    }
+
+    fun fetchPositioningData(wifiAccessPointsBssid: List<String>): RustyResult<AppleWps.WifiPositioningDataApiModel, FetchPositioningDataError>
 }
 
 fun AppleWps.PositioningData.isNull(): Boolean = this.latitude == -18000000000
