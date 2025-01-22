@@ -129,7 +129,10 @@ class NearbyWifiPositioningDataRepository(
                                     firstWifi.positioningData
                                 val nearbyWifi =
                                     NearbyWifi(
-                                        bssid = firstWifi.bssid,
+                                        // Use the BSSID from our scan because Apple's WiFi
+                                        // positioning service has a bug where it strips out the
+                                        // leading zero from any octet of a BSSID.
+                                        bssid = scanResult.BSSID,
                                         positioningData = if (firstWifiPositioningData == null) {
                                             null
                                         } else {
