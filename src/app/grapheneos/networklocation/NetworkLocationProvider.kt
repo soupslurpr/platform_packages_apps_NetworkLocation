@@ -120,6 +120,7 @@ class NetworkLocationProvider(
                                         request.maxUpdateDelayMillis / request.intervalMillis
                                     if (batchedLocations.size >= maxBatchSize) {
                                         reportLocations(batchedLocations)
+                                        batchedLocations.clear()
                                     }
                                 } else {
                                     reportLocation(location.value)
