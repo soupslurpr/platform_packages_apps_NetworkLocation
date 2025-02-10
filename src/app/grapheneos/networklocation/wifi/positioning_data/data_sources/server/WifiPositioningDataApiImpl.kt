@@ -82,11 +82,13 @@ class WifiPositioningDataApiImpl(
         } catch (e: Exception) {
             when (e) {
                 is RuntimeException, is IOException -> {
-                    Log.e(
-                        TAG,
-                        "Failed to fetch Wi-Fi access points positioning data",
-                        e
-                    )
+                    if (Log.isLoggable(TAG, Log.ERROR)) {
+                        Log.e(
+                            TAG,
+                            "Failed to fetch Wi-Fi access points' positioning data",
+                            e
+                        )
+                    }
                     return RustyResult.Err(WifiPositioningDataApi.FetchPositioningDataError.Failure)
                 }
 

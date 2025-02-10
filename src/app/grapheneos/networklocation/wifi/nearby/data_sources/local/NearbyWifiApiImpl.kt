@@ -29,11 +29,15 @@ class NearbyWifiApiImpl(
         return suspendCancellableCoroutine { continuation ->
             val scanListener = object : ScanListener {
                 override fun onSuccess() {
-                    Log.d(TAG, "onSuccess: ")
+                    if (Log.isLoggable(TAG, Log.DEBUG)) {
+                        Log.d(TAG, "onSuccess: ")
+                    }
                 }
 
                 override fun onFailure(reason: Int, description: String?) {
-                    Log.d(TAG, "onFailure: reason: $reason, description: $description")
+                    if (Log.isLoggable(TAG, Log.DEBUG)) {
+                        Log.d(TAG, "onFailure: reason: $reason, description: $description")
+                    }
                     continuation.resume(RustyResult.Err(NearbyWifiApi.FetchNearbyWifiError.Failure))
                 }
 
@@ -47,9 +51,11 @@ class NearbyWifiApiImpl(
                         continuation.resume(RustyResult.Err(NearbyWifiApi.FetchNearbyWifiError.Failure))
                         return
                     }
-                    // For single scans, the array size should always be 1.
-                    if (results.size != 1) {
-                        Log.v(TAG, "Found more than 1 batch of scan results, ignoring...")
+                    // for single scans, the array size should always be 1
+                    if (results.size > 1) {
+                        if (Log.isLoggable(TAG, Log.DEBUG)) {
+                            Log.d(TAG, "Found more than 1 batch of scan results")
+                        }
                     }
                     val scannedAccessPoints = results[0].results.toList()
                     continuation.resume(RustyResult.Ok(scannedAccessPoints))

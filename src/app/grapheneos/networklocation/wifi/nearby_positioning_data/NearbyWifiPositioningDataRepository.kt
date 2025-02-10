@@ -65,10 +65,12 @@ class NearbyWifiPositioningDataRepository(
                             }
                         }
                     if (cachedNearbyWifi != null) {
-                        Log.v(
-                            TAG,
-                            "found access point in cache: $cachedNearbyWifi"
-                        )
+                        if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                            Log.v(
+                                TAG,
+                                "Found access point in cache: $cachedNearbyWifi"
+                            )
+                        }
 
                         val updatedCachedNearbyWifi =
                             cachedNearbyWifi.copy(
@@ -101,10 +103,12 @@ class NearbyWifiPositioningDataRepository(
                         continue
                     }
 
-                    Log.v(
-                        TAG,
-                        "requested positioning data for unknown access point: ${scanResult.BSSID}"
-                    )
+                    if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                        Log.v(
+                            TAG,
+                            "Requested positioning data for unknown access point: ${scanResult.BSSID}"
+                        )
+                    }
 
                     val wifiPositioningData =
                         wifiPositioningDataRepository.fetchPositioningData(

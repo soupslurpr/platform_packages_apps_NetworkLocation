@@ -74,7 +74,9 @@ class NetworkLocationProvider(
             batchedLocations.clear()
         }
 
-        Log.v(TAG, request.toString())
+        if (Log.isLoggable(TAG, Log.VERBOSE)) {
+            Log.v(TAG, request.toString())
+        }
 
         if (request.isActive && isAllowed) {
             val isBatching =
