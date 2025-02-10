@@ -12,6 +12,7 @@ android_app {
     static_libs: [
         "androidx.core_core",
         "network-location-proto",
+        "apache-commons-math3"
     ],
 
     libs: [

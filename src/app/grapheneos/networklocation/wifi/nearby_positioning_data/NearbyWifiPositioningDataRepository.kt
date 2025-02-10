@@ -55,8 +55,9 @@ class NearbyWifiPositioningDataRepository(
                 }
 
                 val sortedByLevelScanResults = scanResults.sortedByDescending { it.level }
-                val bestNearbyWifis: MutableList<NearbyWifi> =
+                val nearbyWifis: MutableList<NearbyWifi> =
                     mutableListOf()
+
                 for (scanResult in sortedByLevelScanResults) {
                     val cachedNearbyWifi =
                         latestNearbyWifiCacheMutex.withLock {
@@ -88,18 +89,14 @@ class NearbyWifiPositioningDataRepository(
                             )
                         }
                         if (updatedCachedNearbyWifi.positioningData != null) {
-                            // only add the closest one for now
-                            if (bestNearbyWifis.isEmpty()) {
-                                bestNearbyWifis.add(updatedCachedNearbyWifi)
-                            }
-                        } else {
-                            // if we know that this access point doesn't have any positioning data,
-                            // don't bother trying to request it again.
-                            continue
+                            nearbyWifis.add(updatedCachedNearbyWifi)
                         }
+
+                        continue
                     }
 
-                    if (bestNearbyWifis.isNotEmpty()) {
+                    // don't request more if we already have the top 5
+                    if (nearbyWifis.size >= 5) {
                         continue
                     }
 
@@ -133,9 +130,9 @@ class NearbyWifiPositioningDataRepository(
                                     firstWifi.positioningData
                                 val nearbyWifi =
                                     NearbyWifi(
-                                        // Use the BSSID from our scan because Apple's WiFi
+                                        // use the BSSID from our scan because Apple's WiFi
                                         // positioning service has a bug where it strips out the
-                                        // leading zero from any octet of a BSSID.
+                                        // leading zero from any octet of a BSSID
                                         bssid = scanResult.BSSID,
                                         positioningData = if (firstWifiPositioningData == null) {
                                             null
@@ -157,7 +154,7 @@ class NearbyWifiPositioningDataRepository(
                                     )
                                 }
                                 if (firstWifiPositioningData != null) {
-                                    bestNearbyWifis.add(nearbyWifi)
+                                    nearbyWifis.add(nearbyWifi)
                                 }
                             }
                         }
@@ -165,7 +162,7 @@ class NearbyWifiPositioningDataRepository(
                 }
 
                 // check cache for entries that were last seen more than 5 minutes ago and remove
-                // them.
+                // them
                 latestNearbyWifiCacheMutex.withLock {
                     latestNearbyWifiCache.removeIf {
                         val delta =
@@ -175,7 +172,7 @@ class NearbyWifiPositioningDataRepository(
                     }
                 }
 
-                RustyResult.Ok(bestNearbyWifis)
+                RustyResult.Ok(nearbyWifis)
             }
 
     fun setWorkSource(workSource: WorkSource) {
