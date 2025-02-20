@@ -111,7 +111,7 @@ private fun nonlinearLeastSquaresTrilateration(
     maxIterations: Int = 1000,
     confidenceLevel: Double = 0.95
 ): TrilaterationResult? {
-    if (measurements.size < 3) {
+    if (measurements.size < 2) {
         return null // not enough measurements
     }
 
@@ -233,10 +233,18 @@ private fun ransacTrilateration(
         return null // not enough data
     }
 
+    val iterations = if (measurements.size <= 3) {
+        // more iterations just runs the same thing over and over again because the minimum sample
+        // is up to 3 measurements
+        1
+    } else {
+        maxIterations
+    }
+
     var bestInliers: List<Pair<Measurement, Double>> = emptyList()
     var bestResult: TrilaterationResult? = null
 
-    for (iteration in 1..maxIterations) {
+    for (iteration in 1..iterations) {
         // randomly select a minimal sample
         val sample = measurements.shuffled(random).take(3)
 
@@ -291,42 +299,79 @@ private fun ransacTrilateration(
     return null
 }
 
+private data class EstimatedPosition(
+    val estimatedPosition: Point,
+    val accuracyRadius: Double
+)
+
 /**
- * Estimate a position using robust methods to minimize the chance of an inaccurate position, while
+ * Estimate a position using robust methods to minimize the chance of an inaccurate position while
  * maximizing accuracy.
+ *
+ * Gracefully downgrades the methods used if the provided number of measurements is insufficient.
  */
 private fun estimatePosition(
     measurements: List<Measurement>,
     confidenceLevel: Double,
     random: Random
-): TrilaterationResult? {
-    if (measurements.size < 3) {
-        return null // not enough measurements for trilateration
-    }
+): EstimatedPosition? {
+    return when (measurements.size) {
+        0 -> null
+        1 -> {
+            val measurement = measurements[0]
+            // since we have just 1 measurement, we can't exactly try multiple path loss exponents
+            // as we can't assess the result
+            val pathLossExponent = 3.0
 
-    var multiRangePathLossExponentBestResult: RansacTrilaterationResult? = null
+            val accuracyRadius =
+                sqrt(
+                    totalMeasurementVariance(measurement, pathLossExponent) * getChiSquaredValue(
+                        confidenceLevel
+                    )
+                )
 
-    // try multiple path loss exponents and select the best result determined by highest number of
-    // inliers and then best accuracy
-    for (x in (0..5)) {
-        for (pathLossExponent in (20..60).map { it.toDouble() / 10 }) {
-            val result = ransacTrilateration(
-                measurements.map { Pair(it, pathLossExponent) },
-                confidenceLevel = confidenceLevel,
-                random = random
+            EstimatedPosition(
+                measurement.apPosition,
+                accuracyRadius
             )
+        }
 
-            if ((result != null) && ((multiRangePathLossExponentBestResult == null) ||
-                        (result.inliersSize > multiRangePathLossExponentBestResult.inliersSize) ||
-                        ((result.inliersSize == multiRangePathLossExponentBestResult.inliersSize) &&
-                                (result.trilaterationResult.accuracyRadius < multiRangePathLossExponentBestResult.trilaterationResult.accuracyRadius)))
-            ) {
-                multiRangePathLossExponentBestResult = result
+        else -> {
+            var multiRangePathLossExponentBestResult: RansacTrilaterationResult? = null
+
+            // try multiple path loss exponents multiple times and select the best result
+            for (x in (0..5)) {
+                for (pathLossExponent in (20..60).map { it.toDouble() / 10 }) {
+                    val result = ransacTrilateration(
+                        measurements.map { Pair(it, pathLossExponent) },
+                        random = random,
+                        minInliers = if (measurements.size == 2) {
+                            2
+                        } else {
+                            3
+                        },
+                        confidenceLevel = confidenceLevel,
+                    )
+
+                    // best result determined by highest number of inliers first and then accuracy
+                    if ((result != null) && ((multiRangePathLossExponentBestResult == null) ||
+                                (result.inliersSize > multiRangePathLossExponentBestResult.inliersSize) ||
+                                ((result.inliersSize == multiRangePathLossExponentBestResult.inliersSize) &&
+                                        (result.trilaterationResult.accuracyRadius < multiRangePathLossExponentBestResult.trilaterationResult.accuracyRadius)))
+                    ) {
+                        multiRangePathLossExponentBestResult = result
+                    }
+                }
+            }
+
+            multiRangePathLossExponentBestResult?.trilaterationResult?.let {
+                EstimatedPosition(
+                    it.estimatedPosition,
+                    it.accuracyRadius
+                )
             }
         }
     }
-
-    return multiRangePathLossExponentBestResult?.trilaterationResult
 }
 
 /**
@@ -432,8 +477,7 @@ class NetworkLocationRepository(
                 is RustyResult.Ok -> {
                     var location: Location? = null
 
-                    // filter out entries with null positioning data (they aren't currently sent by
-                    // NearbyWifiPositioningDataRepository anyway) and sort by signal strength (descending)
+                    // filter out entries with null positioning data and sort by signal strength (descending)
                     val nearbyWifis =
                         nearbyWifiPositioningData.value.filter { it.positioningData != null }
                             .sortedByDescending { it.positioningData!!.rssi }
@@ -466,7 +510,7 @@ class NetworkLocationRepository(
                         )
                     }
 
-                    val result: TrilaterationResult? = estimatePosition(
+                    val result = estimatePosition(
                         measurements,
                         // accuracy should be at the 68th percentile confidence level
                         0.68,
