@@ -23,15 +23,15 @@ class NearbyWifiLocalDataSource(
 }
 
 interface NearbyWifiApi {
-    sealed class FetchNearbyWifiError {
-        data object Failure : FetchNearbyWifiError()
-        data object Unavailable : FetchNearbyWifiError()
+    sealed class LatestNearbyWifiError {
+        data object Failure : LatestNearbyWifiError()
+        data object Unavailable : LatestNearbyWifiError()
     }
 
     /**
-     * Fetch the nearby Wi-Fi access points.
+     * Fetch nearby Wi-Fi access points.
      */
-    suspend fun fetchNearbyWifi(): RustyResult<List<ScanResult>, FetchNearbyWifiError>
+    suspend fun fetchNearbyWifi(): RustyResult<List<ScanResult>, LatestNearbyWifiError>
 
     fun setWorkSource(workSource: WorkSource)
 }

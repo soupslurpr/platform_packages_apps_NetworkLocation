@@ -39,8 +39,8 @@ class WifiPositioningDataRepository(
                             positioningData = if (!it.positioningData.isNull()) {
                                 it.positioningData.let { serverApiPositioningData ->
                                     WifiPositioningData(
-                                        serverApiPositioningData.latitude * 10.toDouble().pow(-8),
-                                        serverApiPositioningData.longitude * 10.toDouble().pow(-8),
+                                        serverApiPositioningData.latitude * 10.0.pow(-8),
+                                        serverApiPositioningData.longitude * 10.0.pow(-8),
                                         serverApiPositioningData.accuracyMeters,
                                         serverApiPositioningData.altitudeMeters.let { altitudeMeters ->
                                             // the api returns -1 or -500 for unknown altitude

@@ -29,24 +29,24 @@ class NearbyWifiPositioningDataRepository(
     private val latestNearbyWifiCache: MutableList<NearbyWifi> =
         mutableListOf()
 
-    sealed class LatestNearbyWifiWithPositioningDataError {
-        data object Failure : LatestNearbyWifiWithPositioningDataError()
-        data object Unavailable : LatestNearbyWifiWithPositioningDataError()
+    sealed class LatestNearbyWifiPositioningDataError {
+        data object Failure : LatestNearbyWifiPositioningDataError()
+        data object Unavailable : LatestNearbyWifiPositioningDataError()
     }
 
-    /** Flow that emits nearby Wi-Fi access points with positioning data. */
-    val latestNearbyWifiWithPositioningData: Flow<RustyResult<List<NearbyWifi>, LatestNearbyWifiWithPositioningDataError>> =
+    /** Flow that emits nearby Wi-Fi access points' positioning data. */
+    val latestNearbyWifiPositioningData: Flow<RustyResult<List<NearbyWifi>, LatestNearbyWifiPositioningDataError>> =
         nearbyWifiRepository.latestNearbyWifi
             .map { result: RustyResult<List<ScanResult>, NearbyWifiRepository.LatestNearbyWifiError> ->
                 val scanResults = when (result) {
                     is RustyResult.Err -> {
                         return@map when (result.error) {
                             NearbyWifiRepository.LatestNearbyWifiError.Failure -> RustyResult.Err(
-                                LatestNearbyWifiWithPositioningDataError.Failure
+                                LatestNearbyWifiPositioningDataError.Failure
                             )
 
                             NearbyWifiRepository.LatestNearbyWifiError.Unavailable -> RustyResult.Err(
-                                LatestNearbyWifiWithPositioningDataError.Unavailable
+                                LatestNearbyWifiPositioningDataError.Unavailable
                             )
                         }
                     }
@@ -115,11 +115,11 @@ class NearbyWifiPositioningDataRepository(
                     when (wifiPositioningData) {
                         is RustyResult.Err -> return@map when (wifiPositioningData.error) {
                             WifiPositioningDataRepository.FetchPositioningDataError.Failure -> RustyResult.Err(
-                                LatestNearbyWifiWithPositioningDataError.Failure
+                                LatestNearbyWifiPositioningDataError.Failure
                             )
 
                             WifiPositioningDataRepository.FetchPositioningDataError.Unavailable -> RustyResult.Err(
-                                LatestNearbyWifiWithPositioningDataError.Unavailable
+                                LatestNearbyWifiPositioningDataError.Unavailable
                             )
                         }
 

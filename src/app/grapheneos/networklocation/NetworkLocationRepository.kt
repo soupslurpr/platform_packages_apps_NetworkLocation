@@ -6,7 +6,7 @@ import android.os.SystemClock
 import android.os.WorkSource
 import app.grapheneos.networklocation.misc.RustyResult
 import app.grapheneos.networklocation.wifi.nearby_positioning_data.NearbyWifiPositioningDataRepository
-import app.grapheneos.networklocation.wifi.nearby_positioning_data.NearbyWifiPositioningDataRepository.LatestNearbyWifiWithPositioningDataError
+import app.grapheneos.networklocation.wifi.nearby_positioning_data.NearbyWifiPositioningDataRepository.LatestNearbyWifiPositioningDataError
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.apache.commons.math3.exception.ConvergenceException
@@ -417,14 +417,14 @@ class NetworkLocationRepository(
     }
 
     val latestLocation: Flow<RustyResult<Location?, LatestLocationError>> =
-        nearbyWifiPositioningDataRepository.latestNearbyWifiWithPositioningData.map { nearbyWifiPositioningData ->
+        nearbyWifiPositioningDataRepository.latestNearbyWifiPositioningData.map { nearbyWifiPositioningData ->
             when (nearbyWifiPositioningData) {
                 is RustyResult.Err -> when (nearbyWifiPositioningData.error) {
-                    LatestNearbyWifiWithPositioningDataError.Failure -> RustyResult.Err(
+                    LatestNearbyWifiPositioningDataError.Failure -> RustyResult.Err(
                         LatestLocationError.Failure
                     )
 
-                    LatestNearbyWifiWithPositioningDataError.Unavailable -> RustyResult.Err(
+                    LatestNearbyWifiPositioningDataError.Unavailable -> RustyResult.Err(
                         LatestLocationError.Unavailable
                     )
                 }

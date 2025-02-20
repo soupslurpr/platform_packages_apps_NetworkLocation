@@ -16,9 +16,9 @@ class NearbyWifiApiImpl(
 ) : NearbyWifiApi {
     private lateinit var workSource: WorkSource
 
-    override suspend fun fetchNearbyWifi(): RustyResult<List<ScanResult>, NearbyWifiApi.FetchNearbyWifiError> {
+    override suspend fun fetchNearbyWifi(): RustyResult<List<ScanResult>, NearbyWifiApi.LatestNearbyWifiError> {
         if (!wifiManager.isWifiScannerSupported && !(wifiManager.isWifiEnabled || wifiManager.isScanAlwaysAvailable)) {
-            return RustyResult.Err(NearbyWifiApi.FetchNearbyWifiError.Unavailable)
+            return RustyResult.Err(NearbyWifiApi.LatestNearbyWifiError.Unavailable)
         }
 
         val scanSettings = WifiScanner.ScanSettings()
@@ -38,7 +38,7 @@ class NearbyWifiApiImpl(
                     if (Log.isLoggable(TAG, Log.DEBUG)) {
                         Log.d(TAG, "onFailure: reason: $reason, description: $description")
                     }
-                    continuation.resume(RustyResult.Err(NearbyWifiApi.FetchNearbyWifiError.Failure))
+                    continuation.resume(RustyResult.Err(NearbyWifiApi.LatestNearbyWifiError.Failure))
                 }
 
                 @Deprecated("Deprecated in Java")
@@ -48,7 +48,7 @@ class NearbyWifiApiImpl(
 
                 override fun onResults(results: Array<out WifiScanner.ScanData>?) {
                     if (results == null) {
-                        continuation.resume(RustyResult.Err(NearbyWifiApi.FetchNearbyWifiError.Failure))
+                        continuation.resume(RustyResult.Err(NearbyWifiApi.LatestNearbyWifiError.Failure))
                         return
                     }
                     // for single scans, the array size should always be 1
