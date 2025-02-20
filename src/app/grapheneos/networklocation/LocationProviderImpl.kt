@@ -90,3 +90,266 @@ private fun createProviderProperties(): ProviderProperties {
         build()
     }
 }
+
+// TODO: refactor below code into above
+private data class NearbyPositioningDataSourceTracker(
+    val identifier: Identifier,
+    // desirability of this data source relative to the others from greatest to least
+    val desirability: Int,
+    var viability: Viability,
+    // exponential back off meant to track minimum time before trying to use the data source
+    // again after it's nonviable
+    val nonviabilityExponentialBackOff: ExponentialBackOff,
+    // the timestamp of the end of the last attempt to use this data source, used for
+    // exponential backoff tracking
+    var lastTryTimestamp: Duration = 0.seconds
+) {
+    enum class Identifier {
+        WIFI,
+        CELL
+    }
+
+    enum class Viability {
+        VIABLE,
+        TEETERING,
+        NONVIABLE,
+    }
+}
+
+private val nearbyPositioningDataSourceTrackers = setOf(
+    NearbyPositioningDataSourceTracker(
+        NearbyPositioningDataSourceTracker.Identifier.CELL,
+        0,
+        NearbyPositioningDataSourceTracker.Viability.VIABLE,
+        ExponentialBackOff()
+    ),
+    NearbyPositioningDataSourceTracker(
+        NearbyPositioningDataSourceTracker.Identifier.WIFI,
+        1,
+        NearbyPositioningDataSourceTracker.Viability.VIABLE,
+        ExponentialBackOff()
+    )
+)
+
+val latestLocation: Flow<RustyResult<Location?, LatestLocationError>> = flow {
+    while (true) {
+        // TODO: consider incrementing this every time we try to get a location. once it hits
+        //  2 or 3, just try every single data source we have left at the same time
+        var tries = 0
+        val dataSourcesToTry: MutableList<NearbyPositioningDataSourceTracker> = mutableListOf()
+        val geoMeasurements: MutableList<GeoMeasurement> = mutableListOf()
+
+        data class EstimatedGeolocation(
+            val position: GeoPoint,
+            val accuracyRadius: Double
+        )
+
+        var estimatedGeolocation: EstimatedGeolocation? = null
+
+        for ((index, dataSource) in nearbyPositioningDataSourceTrackers.sortedByDescending { it.desirability }
+            .withIndex()) {
+            dataSourcesToTry.add(dataSource)
+
+            val isOnLastDataSource = (index + 1) == nearbyPositioningDataSourceTrackers.size
+
+            // if we found a viable data source or if we exhaust all options without finding a
+            // viable one, try with what we got
+            if ((dataSource.viability == NearbyPositioningDataSourceTracker.Viability.VIABLE) || isOnLastDataSource) {
+                val dataSourceJobs: MutableList<Job> = mutableListOf()
+                val dataSourceCoroutine = CoroutineScope(Dispatchers.IO)
+
+                for (dataSourceToTry in dataSourcesToTry) {
+                    if (dataSourceToTry.viability == NearbyPositioningDataSourceTracker.Viability.NONVIABLE) {
+                        val exponentialBackOff = dataSourceToTry.nonviabilityExponentialBackOff
+
+                        if (exponentialBackOff.currentDuration > exponentialBackOff.initialDuration) {
+                            if ((dataSourceToTry.lastTryTimestamp + exponentialBackOff.currentDuration) > SystemClock.elapsedRealtime().milliseconds) {
+                                continue
+                            }
+                        }
+                    }
+
+                    val job = dataSourceCoroutine.launch {
+                        val dataSourceToTryGeoMeasurements: MutableList<GeoMeasurement> =
+                            mutableListOf()
+
+                        when (dataSourceToTry.identifier) {
+                            NearbyPositioningDataSourceTracker.Identifier.WIFI -> {
+                                nearbyWifiPositioningDataRepository.latestNearbyWifiPositioningData.take(
+                                    1
+                                ).collect { nearbyWifi ->
+                                    dataSourceToTry.viability = when (nearbyWifi) {
+                                        is RustyResult.Err -> {
+                                            NearbyPositioningDataSourceTracker.Viability.NONVIABLE
+                                        }
+
+                                        is RustyResult.Ok -> {
+                                            val ok = nearbyWifi.value.mapNotNull {
+                                                val positioningData =
+                                                    it.positioningData ?: return@mapNotNull null
+
+                                                GeoMeasurement(
+                                                    GeoPoint(
+                                                        it.positioningData.latitude,
+                                                        it.positioningData.longitude
+                                                    ),
+                                                    positioningData.accuracyMeters.toDouble()
+                                                        .pow(2),
+                                                    positioningData.rssi.toDouble(),
+                                                    it.lastSeen.microseconds
+                                                )
+                                            }
+
+                                            dataSourceToTryGeoMeasurements.addAll(ok)
+
+                                            when (ok.size) {
+                                                0 -> NearbyPositioningDataSourceTracker.Viability.NONVIABLE
+                                                1, 2 -> NearbyPositioningDataSourceTracker.Viability.TEETERING
+                                                else -> NearbyPositioningDataSourceTracker.Viability.VIABLE
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            NearbyPositioningDataSourceTracker.Identifier.CELL -> {
+                                nearbyCellPositioningDataRepository.latestNearbyCellPositioningData.take(
+                                    1
+                                ).collect { nearbyCell ->
+                                    dataSourceToTry.viability = when (nearbyCell) {
+                                        is RustyResult.Err -> {
+                                            NearbyPositioningDataSourceTracker.Viability.NONVIABLE
+                                        }
+
+                                        is RustyResult.Ok -> {
+                                            val ok = nearbyCell.value.mapNotNull {
+                                                val positioningData =
+                                                    it.positioningData ?: return@mapNotNull null
+
+                                                GeoMeasurement(
+                                                    GeoPoint(
+                                                        it.positioningData.latitude,
+                                                        it.positioningData.longitude
+                                                    ),
+                                                    positioningData.accuracyMeters.toDouble()
+                                                        .pow(2),
+                                                    positioningData.rssi.toDouble(),
+                                                    it.lastSeen.milliseconds
+                                                )
+                                            }
+
+                                            dataSourceToTryGeoMeasurements.addAll(ok)
+
+                                            when (ok.size) {
+                                                0 -> NearbyPositioningDataSourceTracker.Viability.NONVIABLE
+                                                1, 2 -> NearbyPositioningDataSourceTracker.Viability.TEETERING
+                                                else -> NearbyPositioningDataSourceTracker.Viability.VIABLE
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (dataSourceToTry.viability == NearbyPositioningDataSourceTracker.Viability.NONVIABLE) {
+                            dataSourceToTry.nonviabilityExponentialBackOff.advance()
+                        } else {
+                            dataSourceToTry.nonviabilityExponentialBackOff.reset()
+                        }
+
+                        geoMeasurements.addAll(dataSourceToTryGeoMeasurements)
+
+                        dataSourceToTry.lastTryTimestamp =
+                            SystemClock.elapsedRealtime().milliseconds
+                    }
+
+                    dataSourceJobs.add(job)
+                }
+                dataSourceJobs.joinAll()
+
+                var wereAnyViable = false
+
+                for (triedDataSource in dataSourcesToTry) {
+                    if (Log.isLoggable(TAG, Log.INFO)) {
+                        Log.i(
+                            TAG,
+                            "checking viability status of triedDataSource: $triedDataSource"
+                        )
+                    }
+
+                    if (triedDataSource.viability == NearbyPositioningDataSourceTracker.Viability.VIABLE) {
+                        wereAnyViable = true
+                        break
+                    }
+                }
+
+                dataSourcesToTry.clear()
+
+                if (wereAnyViable || isOnLastDataSource) {
+                    if (geoMeasurements.isNotEmpty()) {
+                        val refGeoPoint = GeoPoint(
+                            geoMeasurements.map { it.apPosition.latitude }.median(),
+                            geoMeasurements.map { it.apPosition.longitude }.median()
+                        )
+
+                        val measurements = geoMeasurements.map {
+                            Measurement(
+                                apPosition = geoPointToEnuPoint(
+                                    it.apPosition,
+                                    refGeoPoint
+                                ),
+                                apPositionVariance = it.apPositionVariance,
+                                rssi = it.rssi,
+                                lastSeen = it.lastSeen
+                            )
+                        }
+
+                        val estimatedLocation = estimateLocation(
+                            measurements,
+                            // accuracy radius should be at the 68th percentile confidence level
+                            0.68,
+                            Random(System.currentTimeMillis())
+                        )
+
+                        if (estimatedLocation != null) {
+                            estimatedGeolocation = EstimatedGeolocation(
+                                enuPointToGeoPoint(
+                                    Point(
+                                        estimatedLocation.position.x,
+                                        estimatedLocation.position.y
+                                    ),
+                                    refGeoPoint
+                                ),
+                                estimatedLocation.accuracyRadius
+                            )
+                            break
+                        }
+                    }
+                }
+            }
+        }
+
+        val result = if (estimatedGeolocation != null && geoMeasurements.isNotEmpty()) {
+            val location = Location(LocationManager.NETWORK_PROVIDER)
+
+            location.elapsedRealtimeNanos =
+                geoMeasurements.map { it.lastSeen.inWholeNanoseconds }.sorted()[0]
+            location.time =
+                (System.currentTimeMillis() - SystemClock.elapsedRealtimeNanos().nanoseconds.inWholeMilliseconds) + location.elapsedRealtimeNanos.nanoseconds.inWholeMilliseconds
+            location.latitude = estimatedGeolocation.position.latitude
+            location.longitude = estimatedGeolocation.position.longitude
+
+            location.accuracy = estimatedGeolocation.accuracyRadius.toFloat()
+
+            RustyResult.Ok(location)
+        } else {
+            if (geoMeasurements.isEmpty()) {
+                RustyResult.Err(LatestLocationError.Unavailable)
+            } else {
+                RustyResult.Err(LatestLocationError.Failure)
+            }
+        }
+
+        emit(result)
+    }
+}

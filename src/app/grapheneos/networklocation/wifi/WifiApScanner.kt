@@ -29,8 +29,8 @@ class WifiApScanner(private val context: Context) {
             }
         }
 
-        // WifiManager.isWifiScannerSupported() is intentionally not checked. That method has
-        // misleadining name and documentation: it checks whether the default Wi-Fi adapter supports
+        // WifiManager.isWifiScannerSupported() is intentionally not checked. That method has a
+        // misleading name and documentation: it checks whether the default Wi-Fi adapter supports
         // background scanning, not whether android.net.wifi.WifiScanner APIs are supported.
 
         val wifiScanner = context.getSystemService(WifiScanner::class.java)

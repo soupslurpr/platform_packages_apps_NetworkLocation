@@ -39,10 +39,20 @@ data class GeoPoint(val latitude: Double, val longitude: Double)
 
 data class Point(val x: Double, val y: Double)
 
+private data class GeoMeasurement(
+    val apPosition: GeoPoint,
+    val apPositionVariance: Double, // variance of the AP position (in meters squared)
+    val rssi: Double,
+    /** timestamp (since boot) when this result was last seen. */
+    val lastSeen: Duration
+)
+
 data class Measurement(
     val apPosition: Point,
     val apPositionVariance: Double, // variance of the AP position (in meters squared)
-    val rssi: Double
+    val rssi: Double,
+    /** timestamp (since boot) when this result was last seen. */
+    val lastSeen: Duration
 )
 
 private class MeasurementExt(val measurement: Measurement, val pathLossExponent: Double)
@@ -281,7 +291,7 @@ private fun ransacTrilateration(
 }
 
 data class EstimatedPosition(
-    val estimatedPosition: Point,
+    val position: Point,
     val accuracyRadius: Double
 )
 

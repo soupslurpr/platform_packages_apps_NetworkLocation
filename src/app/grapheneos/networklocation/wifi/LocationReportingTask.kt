@@ -12,6 +12,7 @@ import app.grapheneos.networklocation.GeoPoint
 import app.grapheneos.networklocation.MAX_MEASUREMENTS_FOR_RANSAC_TRILATERATION
 import app.grapheneos.networklocation.Measurement
 import app.grapheneos.networklocation.Point
+import app.grapheneos.networklocation.cell.CellTowerScanner
 import app.grapheneos.networklocation.enuPointToGeoPoint
 import app.grapheneos.networklocation.estimatePosition
 import app.grapheneos.networklocation.geoPointToEnuPoint
@@ -25,10 +26,13 @@ import kotlin.time.Duration.Companion.microseconds
 
 private const val TAG = "LocationReportingTask"
 
-class LocationReportingTask(private val provider: LocationProviderBase,
-                            private val request: ProviderRequest,
-                            private val scanner: WifiApScanner,
-                            private val service: WifiPositioningServiceCache,
+class LocationReportingTask(
+    private val provider: LocationProviderBase,
+    private val request: ProviderRequest,
+    private val wifiApScanner: WifiApScanner,
+    private val wifiService: WifiPositioningServiceCache,
+    private val cellTowerScanner: CellTowerScanner,
+    private val cellTowerService: CellPositioningServiceCache
 ) {
     suspend fun run() {
         val interval = max(1000, request.intervalMillis)
@@ -49,7 +53,7 @@ class LocationReportingTask(private val provider: LocationProviderBase,
 
     private suspend fun step() {
         val scanResults = try {
-            scanner.scan(request.workSource)
+            wifiApScanner.scan(request.workSource)
         } catch (e: Exception) {
             when (e) {
                 is WifiScannerUnavailableException, is WifiScanFailedException -> {
@@ -80,7 +84,7 @@ class LocationReportingTask(private val provider: LocationProviderBase,
             val positioningData = try {
                 // don't make additional network request when there's at least 5 results already
                 val onlyCached = bestResults.size >= 5
-                service.getPositioningData(bssid, onlyCached)
+                wifiService.getPositioningData(bssid, onlyCached)
             } catch (e: IOException) {
                 Log.d(TAG, "unable to obtain positioning data: $e")
                 if (Log.isLoggable(TAG, Log.VERBOSE)) {
@@ -134,7 +138,7 @@ class LocationReportingTask(private val provider: LocationProviderBase,
         val locationAgeMillis = SystemClock.elapsedRealtime() - loc.elapsedRealtimeNanos / 1_000_000L
         loc.time = max(0L, System.currentTimeMillis() - locationAgeMillis)
 
-        val enuPoint = Point(result.estimatedPosition.x, result.estimatedPosition.y)
+        val enuPoint = Point(result.position.x, result.position.y)
         val estimatedGeoPoint = enuPointToGeoPoint(enuPoint, refGeoPoint)
         loc.longitude = estimatedGeoPoint.longitude
         loc.latitude = estimatedGeoPoint.latitude

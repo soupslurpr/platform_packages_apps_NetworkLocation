@@ -13,7 +13,6 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
-import kotlin.random.Random
 
 private const val TAG = "AppleWps"
 

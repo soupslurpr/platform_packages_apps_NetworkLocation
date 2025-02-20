@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package app.grapheneos.networklocation.proto;
+
+option java_outer_classname = "AppleCpsProtos";
+
+message Request {
+  repeated CellTower cell_tower_response = 22;
+  repeated CellTower cell_tower_request = 25;
+  // modifies number of results from 120 to (cell_tower_request.size + 21 + this)
+  // this can can be set to between 1 and 400
+  optional int32 number_of_results_modifier = 26;
+}
+
+message CellTower {
+  int64 mcc = 1;
+  int64 mnc = 2;
+  // value of -1 seems to equal None
+  int64 cell_id = 3;
+  int64 tac_id = 4;
+  optional PositioningData positioning_data = 5;
+  // seems to be EARFCN
+  optional int64 earfcn = 6;
+  // seems to be PCI
+  optional int64 pci = 7;
+}
+
+message PositioningData {
+  int64 latitude = 1;
+  int64 longitude = 2;
+  int64 accuracy_meters = 3;
+}
