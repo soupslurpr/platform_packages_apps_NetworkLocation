@@ -14,9 +14,9 @@ class NearbyWifiRepository(
         data object Unavailable : LatestNearbyWifiError()
     }
 
-    val latestNearbyWifi = nearbyWifiLocalDataSource.latestNearbyWifi.map {
-        when (it) {
-            is RustyResult.Err -> when (it.error) {
+    val latestNearbyWifi = nearbyWifiLocalDataSource.latestNearbyWifi.map { scanResults ->
+        when (scanResults) {
+            is RustyResult.Err -> when (scanResults.error) {
                 NearbyWifiApi.LatestNearbyWifiError.Failure -> RustyResult.Err(
                     LatestNearbyWifiError.Failure
                 )
@@ -26,7 +26,15 @@ class NearbyWifiRepository(
                 )
             }
 
-            is RustyResult.Ok -> RustyResult.Ok(it.value)
+            is RustyResult.Ok -> RustyResult.Ok(scanResults.value.filter {
+                val ssid = it.wifiSsid
+
+                if (ssid != null) {
+                    !ssid.bytes.decodeToString().endsWith("_nomap")
+                } else {
+                    true
+                }
+            })
         }
     }
 
