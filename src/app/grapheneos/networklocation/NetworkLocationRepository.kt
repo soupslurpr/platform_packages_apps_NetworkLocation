@@ -25,7 +25,6 @@ import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.sqrt
-import kotlin.random.Random
 import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Duration.Companion.nanoseconds
 
@@ -226,7 +225,6 @@ private data class RansacTrilaterationResult(
  */
 private fun ransacTrilateration(
     measurements: List<MeasurementExt>,
-    random: Random,
     maxIterations: Int = 1000,
     minInliers: Int = 3,
     confidenceLevel: Double = 0.95
@@ -248,7 +246,7 @@ private fun ransacTrilateration(
 
     for (iteration in 1..iterations) {
         // randomly select a minimal sample
-        val sample = measurements.shuffled(random).take(3)
+        val sample = measurements.shuffled().take(3)
 
         // use geometric median of sample positions as initial guess
         val initialGuess = geometricMedian(sample.map { it.measurement.apPosition })
@@ -314,8 +312,7 @@ private data class EstimatedPosition(
  */
 private fun estimatePosition(
     measurements: List<Measurement>,
-    confidenceLevel: Double,
-    random: Random
+    confidenceLevel: Double
 ): EstimatedPosition? {
     return when (measurements.size) {
         0 -> null
@@ -346,7 +343,6 @@ private fun estimatePosition(
                 for (pathLossExponent in (20..60).map { it.toDouble() / 10 }) {
                     val result = ransacTrilateration(
                         measurements.map { MeasurementExt(it, pathLossExponent) },
-                        random = random,
                         minInliers = if (measurements.size == 2) {
                             2
                         } else {
@@ -516,7 +512,6 @@ class NetworkLocationRepository(
                         measurements,
                         // accuracy should be at the 68th percentile confidence level
                         0.68,
-                        Random(System.currentTimeMillis())
                     )
 
                     if (result != null) {
