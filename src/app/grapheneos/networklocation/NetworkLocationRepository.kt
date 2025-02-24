@@ -46,11 +46,11 @@ private const val EARTH_RADIUS = 6378137.0
  */
 private const val RSSI_VARIANCE = 4.0
 
-private data class GeoPoint(val latitude: Double, val longitude: Double)
+data class GeoPoint(val latitude: Double, val longitude: Double)
 
-private data class Point(val x: Double, val y: Double)
+data class Point(val x: Double, val y: Double)
 
-private data class Measurement(
+data class Measurement(
     val apPosition: Point,
     val apPositionVariance: Double, // variance of the AP position (in meters squared)
     val rssi: Double
@@ -94,7 +94,7 @@ private fun computeMeasurementWeights(
     }.toDoubleArray()
 }
 
-private fun List<Double>.median(): Double {
+fun List<Double>.median(): Double {
     val sortedList = this.sorted()
     val size = sortedList.size
     return if (size % 2 == 0) {
@@ -291,7 +291,7 @@ private fun ransacTrilateration(
     return null
 }
 
-private data class EstimatedPosition(
+data class EstimatedPosition(
     val estimatedPosition: Point,
     val accuracyRadius: Double
 )
@@ -302,7 +302,7 @@ private data class EstimatedPosition(
  *
  * Gracefully downgrades the methods used if the provided number of measurements is insufficient.
  */
-private fun estimatePosition(
+fun estimatePosition(
     measurements: List<Measurement>,
     confidenceLevel: Double
 ): EstimatedPosition? {
@@ -408,7 +408,7 @@ private fun geometricMedian(
  *  support using cell towers as a data point for determining location because of how much further
  *  away from the user they may be compared to Wi-Fi networks.
  */
-private fun geoPointToEnuPoint(geoPoint: GeoPoint, refGeoPoint: GeoPoint): Point {
+fun geoPointToEnuPoint(geoPoint: GeoPoint, refGeoPoint: GeoPoint): Point {
     val dLat = Math.toRadians(geoPoint.latitude - refGeoPoint.latitude)
     val dLon = Math.toRadians(geoPoint.longitude - refGeoPoint.longitude)
     val latRad = Math.toRadians(refGeoPoint.latitude)
@@ -419,7 +419,7 @@ private fun geoPointToEnuPoint(geoPoint: GeoPoint, refGeoPoint: GeoPoint): Point
     return Point(x, y)
 }
 
-private fun enuPointToGeoPoint(enuPoint: Point, refGeoPoint: GeoPoint): GeoPoint {
+fun enuPointToGeoPoint(enuPoint: Point, refGeoPoint: GeoPoint): GeoPoint {
     val latRad = Math.toRadians(refGeoPoint.latitude)
     val dLat = enuPoint.y / EARTH_RADIUS
     val dLon = enuPoint.x / (EARTH_RADIUS * cos(latRad))
