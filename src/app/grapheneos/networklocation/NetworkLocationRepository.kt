@@ -24,10 +24,12 @@ import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.ArrayRealVector
 import org.apache.commons.math3.linear.RealVector
 import org.apache.commons.math3.linear.SingularMatrixException
+import org.apache.commons.math3.util.Combinations
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.ln
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.microseconds
@@ -218,40 +220,29 @@ private data class RansacTrilaterationResult(
     val inliersSize: Int
 )
 
+// 84 distinct samples at 3 measurements per sample
+const val MAX_MEASUREMENTS_FOR_RANSAC_TRILATERATION = 9
+
 /**
  * Use Random sample consensus (RANSAC) with nonlinear least squares trilateration to determine the
  * position.
- *
- * TODO: This could be done in a better
- *  way by making sure to keep track of which samples we've already tried so we don't run the same
- *  computations over and over again. Additionally, if the amount of measurements are low enough, we
- *  could just run through all the possibilities instead of potentially leaving out some by stopping
- *  early. We currently run this multiple times to somewhat compensate for that anyway.
  */
 private fun ransacTrilateration(
     measurements: List<MeasurementExt>,
-    maxIterations: Int = 1000,
     minInliers: Int = 3,
     confidenceLevel: Double = 0.95
 ): RansacTrilaterationResult? {
-    if (measurements.size < minInliers) {
-        return null // not enough data
-    }
-
-    val iterations = if (measurements.size <= 3) {
-        // more iterations just runs the same thing over and over again because the minimum sample
-        // is up to 3 measurements
-        1
-    } else {
-        maxIterations
-    }
+    val numMeasurements = measurements.size
+    require(numMeasurements <= MAX_MEASUREMENTS_FOR_RANSAC_TRILATERATION)
+    require(numMeasurements >= minInliers)
 
     var bestInliers: List<MeasurementExt> = emptyList()
     var bestResult: TrilaterationResult? = null
 
-    for (iteration in 1..iterations) {
-        // randomly select a minimal sample
-        val sample = measurements.shuffled().take(3)
+    val sampleSize = min(numMeasurements, 3)
+
+    for (combination in Combinations(numMeasurements, sampleSize)) {
+        val sample = combination.map { measurements[it] }
 
         // use geometric median of sample positions as initial guess
         val initialGuess = geometricMedian(sample.map { it.measurement.apPosition })
@@ -294,13 +285,9 @@ private fun ransacTrilateration(
             bestResult.estimatedPosition,
             confidenceLevel = confidenceLevel
         )?.let {
-            RansacTrilaterationResult(
-                it,
-                bestInliers.size
-            )
+            RansacTrilaterationResult(it, bestInliers.size)
         }
     }
-
     return null
 }
 
@@ -335,18 +322,16 @@ private fun estimatePosition(
         else -> {
             val results: List<RansacTrilaterationResult?> = runBlocking(Dispatchers.Default) {
                 val tasks = mutableListOf<Deferred<RansacTrilaterationResult?>>()
-                // try multiple path loss exponents multiple times
-                repeat(6) {
-                    for (pathLossExponent in (20..60).map { it.toDouble() / 10 }) {
-                        val result = async {
-                            ransacTrilateration(
-                                measurements.map { MeasurementExt(it, pathLossExponent) },
-                                minInliers = if (measurements.size == 2) 2 else 3,
-                                confidenceLevel = confidenceLevel,
-                            )
-                        }
-                        tasks.add(result)
+                for (pathLossExponent in (20..60).map { it.toDouble() / 10 }) {
+                    val result = async {
+                        ransacTrilateration(
+                            measurements.map { MeasurementExt(it, pathLossExponent) }
+                                .take(MAX_MEASUREMENTS_FOR_RANSAC_TRILATERATION),
+                            minInliers = if (measurements.size == 2) 2 else 3,
+                            confidenceLevel = confidenceLevel,
+                        )
                     }
+                    tasks.add(result)
                 }
                 tasks.awaitAll()
             }
