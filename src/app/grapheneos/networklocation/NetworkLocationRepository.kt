@@ -1,18 +1,9 @@
 package app.grapheneos.networklocation
 
-import android.location.Location
-import android.location.LocationManager
-import android.os.SystemClock
-import android.os.WorkSource
-import app.grapheneos.networklocation.misc.RustyResult
-import app.grapheneos.networklocation.wifi.nearby_positioning_data.NearbyWifiPositioningDataRepository
-import app.grapheneos.networklocation.wifi.nearby_positioning_data.NearbyWifiPositioningDataRepository.LatestNearbyWifiPositioningDataError
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.apache.commons.math3.exception.ConvergenceException
 import org.apache.commons.math3.exception.TooManyEvaluationsException
@@ -32,8 +23,6 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
-import kotlin.time.Duration.Companion.microseconds
-import kotlin.time.Duration.Companion.nanoseconds
 
 /**
  * WGS84 semi-major axis of the Earth in meters.
@@ -428,110 +417,4 @@ fun enuPointToGeoPoint(enuPoint: Point, refGeoPoint: GeoPoint): GeoPoint {
     val lon = refGeoPoint.longitude + Math.toDegrees(dLon)
 
     return GeoPoint(lat, lon)
-}
-
-/**
- * Combines multiple positioning data sources to achieve the best network-based location fix.
- */
-class NetworkLocationRepository(
-    private val nearbyWifiPositioningDataRepository: NearbyWifiPositioningDataRepository
-) {
-    sealed class LatestLocationError {
-        data object Failure : LatestLocationError()
-        data object Unavailable : LatestLocationError()
-    }
-
-    val latestLocation: Flow<RustyResult<Location?, LatestLocationError>> =
-        nearbyWifiPositioningDataRepository.latestNearbyWifiPositioningData.map { nearbyWifiPositioningData ->
-            when (nearbyWifiPositioningData) {
-                is RustyResult.Err -> when (nearbyWifiPositioningData.error) {
-                    LatestNearbyWifiPositioningDataError.Failure -> RustyResult.Err(
-                        LatestLocationError.Failure
-                    )
-
-                    LatestNearbyWifiPositioningDataError.Unavailable -> RustyResult.Err(
-                        LatestLocationError.Unavailable
-                    )
-                }
-
-                is RustyResult.Ok -> {
-                    var location: Location? = null
-
-                    // filter out entries with null positioning data and sort by signal strength (descending)
-                    val nearbyWifis =
-                        nearbyWifiPositioningData.value.filter { it.positioningData != null }
-                            .sortedByDescending { it.positioningData!!.rssi }
-
-                    if (nearbyWifis.isEmpty()) {
-                        return@map RustyResult.Err(LatestLocationError.Unavailable)
-                    }
-
-                    // use the median coordinates of nearbyWifis for protection against around 50%
-                    // or less of them being in a wildly incorrect location
-                    val refGeoPoint = GeoPoint(
-                        nearbyWifis.map { it.positioningData!!.latitude }.median(),
-                        nearbyWifis.map { it.positioningData!!.longitude }.median()
-                    )
-
-                    val measurements = nearbyWifis.map {
-                        val positioningData = it.positioningData!!
-                        val apAccuracyVariance = positioningData.accuracyMeters.toDouble().pow(2)
-                        val rssi = positioningData.rssi.toDouble()
-                        // convert position to Cartesian coordinates
-                        val apPosition = geoPointToEnuPoint(
-                            GeoPoint(positioningData.latitude, positioningData.longitude),
-                            refGeoPoint
-                        )
-
-                        Measurement(
-                            apPosition = apPosition,
-                            apPositionVariance = apAccuracyVariance,
-                            rssi = rssi
-                        )
-                    }
-
-                    val result = estimatePosition(
-                        measurements,
-                        // accuracy should be at the 68th percentile confidence level
-                        0.68,
-                    )
-
-                    if (result != null) {
-                        location = Location(LocationManager.NETWORK_PROVIDER)
-                        location.elapsedRealtimeNanos =
-                            nearbyWifis.map { it.lastSeen.microseconds.inWholeNanoseconds }
-                                .sorted()[0]
-                        location.time =
-                            (System.currentTimeMillis() - SystemClock.elapsedRealtimeNanos().nanoseconds.inWholeMilliseconds) + location.elapsedRealtimeNanos.nanoseconds.inWholeMilliseconds
-
-                        val estimatedGeoPoint = enuPointToGeoPoint(
-                            Point(
-                                result.estimatedPosition.x,
-                                result.estimatedPosition.y
-                            ),
-                            refGeoPoint
-                        )
-
-                        location.longitude = estimatedGeoPoint.longitude
-                        location.latitude = estimatedGeoPoint.latitude
-
-                        location.accuracy = result.accuracyRadius.toFloat()
-                    }
-
-                    if (location != null) {
-                        RustyResult.Ok(location)
-                    } else {
-                        RustyResult.Err(LatestLocationError.Unavailable)
-                    }
-                }
-            }
-        }
-
-    fun setWorkSource(workSource: WorkSource) {
-        nearbyWifiPositioningDataRepository.setWorkSource(workSource)
-    }
-
-    suspend fun clearCaches() {
-        nearbyWifiPositioningDataRepository.clearCaches()
-    }
 }

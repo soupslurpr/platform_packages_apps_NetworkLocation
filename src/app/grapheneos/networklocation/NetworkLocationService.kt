@@ -2,60 +2,36 @@ package app.grapheneos.networklocation
 
 import android.app.Service
 import android.content.Intent
-import android.ext.settings.NetworkLocationSettings
+import android.ext.settings.NetworkLocationSettings.NETWORK_LOCATION_SETTING
 import android.location.provider.ProviderRequest
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
+import android.util.Log
+import com.android.internal.os.BackgroundThread
 
-/**
- * The network location service.
- */
+private const val TAG = "NetworkLocationService"
+
 class NetworkLocationService : Service() {
-    private var provider: NetworkLocationProvider? = null
-    private var networkLocationSettingObserver: Any? = null
-    private var networkLocationSettingValue = {
-        val networkLocationSettingValue = networkLocationSetting.get(this)
-        val isAllowed =
-            networkLocationSettingValue != NetworkLocationSettings.NETWORK_LOCATION_DISABLED
-        if (provider?.isAllowed != isAllowed) {
-            provider?.isAllowed = isAllowed
-            if (provider?.isAllowed == false) {
-                provider?.onSetRequest(ProviderRequest.EMPTY_REQUEST)
-            }
-        }
-        networkLocationSettingValue
-    }
+    private lateinit var locationProvider: LocationProviderImpl
+    private lateinit var settingObserverToken: Any
 
     override fun onCreate() {
-        provider = NetworkLocationProvider(
-            context = this,
-            networkLocationSettingValue = networkLocationSettingValue
-        )
-        networkLocationSettingObserver = networkLocationSetting.registerObserver(
-            this,
-            Handler(Looper.getMainLooper())
-        ) {
-            networkLocationSettingValue()
+        Log.d(TAG, "onCreate")
+        locationProvider = LocationProviderImpl(applicationContext)
+        settingObserverToken = NETWORK_LOCATION_SETTING.registerObserver(
+                this, BackgroundThread.getHandler()) {
+            locationProvider.updateIsAllowedState()
         }
-        networkLocationSettingValue()
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return provider?.binder
+    override fun onBind(intent: Intent): IBinder? {
+        Log.d(TAG, "onBind: $intent")
+        locationProvider.updateIsAllowedState()
+        return locationProvider.binder
     }
 
     override fun onDestroy() {
-        super.onDestroy()
-        provider?.onSetRequest(ProviderRequest.EMPTY_REQUEST)
-        provider = null
-        networkLocationSettingObserver?.let {
-            networkLocationSetting.unregisterObserver(this, it)
-        }
-        networkLocationSettingObserver = null
-    }
-
-    companion object {
-        private val networkLocationSetting = NetworkLocationSettings.NETWORK_LOCATION_SETTING
+        Log.d(TAG, "onDestroy")
+        locationProvider.onSetRequest(ProviderRequest.EMPTY_REQUEST)
+        NETWORK_LOCATION_SETTING.unregisterObserver(this, settingObserverToken)
     }
 }
