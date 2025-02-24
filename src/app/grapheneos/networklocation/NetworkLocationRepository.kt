@@ -314,8 +314,8 @@ private fun estimatePosition(
     measurements: List<Measurement>,
     confidenceLevel: Double
 ): EstimatedPosition? {
-    return when (measurements.size) {
-        0 -> null
+    when (measurements.size) {
+        0 -> return null
         1 -> {
             val measurement = measurements[0]
             // since we have just 1 measurement, we can't exactly try multiple path loss exponents
@@ -323,50 +323,37 @@ private fun estimatePosition(
             val pathLossExponent = 3.0
 
             val accuracyRadius =
-                sqrt(
-                    totalMeasurementVariance(measurement, pathLossExponent) * getChiSquaredValue(
-                        confidenceLevel
-                    )
-                )
-
-            EstimatedPosition(
-                measurement.apPosition,
-                accuracyRadius
-            )
+                sqrt(totalMeasurementVariance(measurement, pathLossExponent)
+                            * getChiSquaredValue(confidenceLevel))
+            return EstimatedPosition(measurement.apPosition, accuracyRadius)
         }
-
         else -> {
-            var multiRangePathLossExponentBestResult: RansacTrilaterationResult? = null
-
-            // try multiple path loss exponents multiple times and select the best result
-            for (x in (0..5)) {
+            val results = mutableListOf<RansacTrilaterationResult?>()
+            // try multiple path loss exponents multiple times
+            repeat(6) {
                 for (pathLossExponent in (20..60).map { it.toDouble() / 10 }) {
                     val result = ransacTrilateration(
                         measurements.map { MeasurementExt(it, pathLossExponent) },
-                        minInliers = if (measurements.size == 2) {
-                            2
-                        } else {
-                            3
-                        },
+                        minInliers = if (measurements.size == 2) 2 else 3,
                         confidenceLevel = confidenceLevel,
                     )
-
-                    // best result determined by highest number of inliers first and then accuracy
-                    if ((result != null) && ((multiRangePathLossExponentBestResult == null) ||
-                                (result.inliersSize > multiRangePathLossExponentBestResult.inliersSize) ||
-                                ((result.inliersSize == multiRangePathLossExponentBestResult.inliersSize) &&
-                                        (result.trilaterationResult.accuracyRadius < multiRangePathLossExponentBestResult.trilaterationResult.accuracyRadius)))
-                    ) {
-                        multiRangePathLossExponentBestResult = result
-                    }
+                    results.add(result)
                 }
             }
 
-            multiRangePathLossExponentBestResult?.trilaterationResult?.let {
-                EstimatedPosition(
-                    it.estimatedPosition,
-                    it.accuracyRadius
-                )
+            val bestResult: RansacTrilaterationResult? = results.reduce { best, item ->
+                when {
+                    item == null -> best
+                    best == null || item.inliersSize > best.inliersSize -> item
+                    item.inliersSize < best.inliersSize -> best
+                    // item.inliersSize == best.inliersSize
+                    item.trilaterationResult.accuracyRadius < best.trilaterationResult.accuracyRadius -> item
+                    else -> best
+                }
+            }
+
+            return bestResult?.trilaterationResult?.let {
+                EstimatedPosition(it.estimatedPosition, it.accuracyRadius)
             }
         }
     }
