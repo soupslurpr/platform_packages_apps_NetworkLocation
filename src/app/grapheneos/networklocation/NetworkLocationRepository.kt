@@ -7,8 +7,13 @@ import android.os.WorkSource
 import app.grapheneos.networklocation.misc.RustyResult
 import app.grapheneos.networklocation.wifi.nearby_positioning_data.NearbyWifiPositioningDataRepository
 import app.grapheneos.networklocation.wifi.nearby_positioning_data.NearbyWifiPositioningDataRepository.LatestNearbyWifiPositioningDataError
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import org.apache.commons.math3.exception.ConvergenceException
 import org.apache.commons.math3.exception.TooManyEvaluationsException
 import org.apache.commons.math3.exception.TooManyIterationsException
@@ -328,17 +333,22 @@ private fun estimatePosition(
             return EstimatedPosition(measurement.apPosition, accuracyRadius)
         }
         else -> {
-            val results = mutableListOf<RansacTrilaterationResult?>()
-            // try multiple path loss exponents multiple times
-            repeat(6) {
-                for (pathLossExponent in (20..60).map { it.toDouble() / 10 }) {
-                    val result = ransacTrilateration(
-                        measurements.map { MeasurementExt(it, pathLossExponent) },
-                        minInliers = if (measurements.size == 2) 2 else 3,
-                        confidenceLevel = confidenceLevel,
-                    )
-                    results.add(result)
+            val results: List<RansacTrilaterationResult?> = runBlocking(Dispatchers.Default) {
+                val tasks = mutableListOf<Deferred<RansacTrilaterationResult?>>()
+                // try multiple path loss exponents multiple times
+                repeat(6) {
+                    for (pathLossExponent in (20..60).map { it.toDouble() / 10 }) {
+                        val result = async {
+                            ransacTrilateration(
+                                measurements.map { MeasurementExt(it, pathLossExponent) },
+                                minInliers = if (measurements.size == 2) 2 else 3,
+                                confidenceLevel = confidenceLevel,
+                            )
+                        }
+                        tasks.add(result)
+                    }
                 }
+                tasks.awaitAll()
             }
 
             val bestResult: RansacTrilaterationResult? = results.reduce { best, item ->
