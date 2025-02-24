@@ -50,6 +50,8 @@ private data class Measurement(
     val rssi: Double
 )
 
+private class MeasurementExt(val measurement: Measurement, val pathLossExponent: Double)
+
 private data class TrilaterationResult(
     val estimatedPosition: Point,
     val accuracyRadius: Double // confidence radius (in meters)
@@ -78,10 +80,10 @@ private fun totalMeasurementVariance(measurement: Measurement, pathLossExponent:
 }
 
 private fun computeMeasurementWeights(
-    measurements: List<Pair<Measurement, Double>>
+    measurements: List<MeasurementExt>
 ): DoubleArray {
-    return measurements.map { measurement ->
-        val variance = totalMeasurementVariance(measurement.first, measurement.second)
+    return measurements.map { entry ->
+        val variance = totalMeasurementVariance(entry.measurement, entry.pathLossExponent)
         1.0 / variance
     }.toDoubleArray()
 }
@@ -106,7 +108,7 @@ private fun getChiSquaredValue(confidenceLevel: Double): Double {
 }
 
 private fun nonlinearLeastSquaresTrilateration(
-    measurements: List<Pair<Measurement, Double>>,
+    measurements: List<MeasurementExt>,
     initialGuess: Point,
     maxIterations: Int = 1000,
     confidenceLevel: Double = 0.95
@@ -116,9 +118,9 @@ private fun nonlinearLeastSquaresTrilateration(
     }
 
     val observedDistances =
-        measurements.map { rssiToDistance(it.first.rssi, it.second) }.toDoubleArray()
+        measurements.map { rssiToDistance(it.measurement.rssi, it.pathLossExponent) }.toDoubleArray()
     val positions =
-        measurements.map { doubleArrayOf(it.first.apPosition.x, it.first.apPosition.y) }
+        measurements.map { doubleArrayOf(it.measurement.apPosition.x, it.measurement.apPosition.y) }
             .toTypedArray()
     val weights = computeMeasurementWeights(measurements)
 
@@ -223,7 +225,7 @@ private data class RansacTrilaterationResult(
  *  early. We currently run this multiple times to somewhat compensate for that anyway.
  */
 private fun ransacTrilateration(
-    measurements: List<Pair<Measurement, Double>>,
+    measurements: List<MeasurementExt>,
     random: Random,
     maxIterations: Int = 1000,
     minInliers: Int = 3,
@@ -241,7 +243,7 @@ private fun ransacTrilateration(
         maxIterations
     }
 
-    var bestInliers: List<Pair<Measurement, Double>> = emptyList()
+    var bestInliers: List<MeasurementExt> = emptyList()
     var bestResult: TrilaterationResult? = null
 
     for (iteration in 1..iterations) {
@@ -249,7 +251,7 @@ private fun ransacTrilateration(
         val sample = measurements.shuffled(random).take(3)
 
         // use geometric median of sample positions as initial guess
-        val initialGuess = geometricMedian(sample.map { it.first.apPosition })
+        val initialGuess = geometricMedian(sample.map { it.measurement.apPosition })
 
         // estimate position using the sample
         val result =
@@ -258,13 +260,13 @@ private fun ransacTrilateration(
         val estimatedPosition = result.estimatedPosition
 
         // determine inliers
-        val inliers = measurements.filter { measurement ->
-            val dx = estimatedPosition.x - measurement.first.apPosition.x
-            val dy = estimatedPosition.y - measurement.first.apPosition.y
+        val inliers = measurements.filter { entry ->
+            val dx = estimatedPosition.x - entry.measurement.apPosition.x
+            val dy = estimatedPosition.y - entry.measurement.apPosition.y
             val estimatedDistance = sqrt((dx * dx) + (dy * dy))
-            val measuredDistance = rssiToDistance(measurement.first.rssi, measurement.second)
+            val measuredDistance = rssiToDistance(entry.measurement.rssi, entry.pathLossExponent)
             val residual = abs(estimatedDistance - measuredDistance)
-            val variance = totalMeasurementVariance(measurement.first, measurement.second)
+            val variance = totalMeasurementVariance(entry.measurement, entry.pathLossExponent)
             val standardizedResidual = residual / sqrt(variance)
 
             val threshold = 2.0 // within 2 standard deviations
@@ -343,7 +345,7 @@ private fun estimatePosition(
             for (x in (0..5)) {
                 for (pathLossExponent in (20..60).map { it.toDouble() / 10 }) {
                     val result = ransacTrilateration(
-                        measurements.map { Pair(it, pathLossExponent) },
+                        measurements.map { MeasurementExt(it, pathLossExponent) },
                         random = random,
                         minInliers = if (measurements.size == 2) {
                             2
