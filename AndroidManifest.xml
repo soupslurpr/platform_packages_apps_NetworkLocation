@@ -17,6 +17,7 @@
 
         <service
             android:name="app.grapheneos.networklocation.NetworkLocationService"
+            android:directBootAware="true"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.android.location.service.v3.NetworkLocationProvider" />
