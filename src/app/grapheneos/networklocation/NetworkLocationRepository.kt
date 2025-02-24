@@ -322,7 +322,7 @@ private fun estimatePosition(
         else -> {
             val results: List<RansacTrilaterationResult?> = runBlocking(Dispatchers.Default) {
                 val tasks = mutableListOf<Deferred<RansacTrilaterationResult?>>()
-                for (pathLossExponent in (20..60).map { it.toDouble() / 10 }) {
+                for (pathLossExponent in (20..59 step 3).map { it.toDouble() / 10 }) {
                     val result = async {
                         ransacTrilateration(
                             measurements.map { MeasurementExt(it, pathLossExponent) }
