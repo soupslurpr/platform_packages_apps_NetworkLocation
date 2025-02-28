@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false"/>
+    <domain-config>
+        <domain includeSubdomains="true">gs-loc.apple.grapheneos.org</domain>
+        <!-- no expiry since the app is expected to be kept relatively up-to-date to use the services -->
+        <pin-set>
+            <!-- ISRG Root X1 -->
+            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
+
+            <!-- ISRG Root X2 -->
+            <pin digest="SHA-256">diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=</pin>
+
+            <!-- ECDSA secp256r1 backup key -->
+            <pin digest="SHA-256">fyuTOcpROUxgqm243id/E0Epu/oLdhwljJ7iEHABm0k=</pin>
+
+            <!-- ECDSA secp384r1 backup key -->
+            <pin digest="SHA-256">hnQhFg60r+Y/vcYrWful1ek2pPnMco1NGb561YaUjb0=</pin>
+        </pin-set>
+    </domain-config>
+</network-security-config>
