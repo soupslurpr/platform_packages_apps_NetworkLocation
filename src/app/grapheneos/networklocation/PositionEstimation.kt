@@ -356,7 +356,14 @@ fun estimatePosition(
                     2.0
                 )
             )
-            val zAccuracyRadius = measurement.zPositionVariance
+            val zAccuracyRadius = measurement.zPositionVariance?.let {
+                sqrt(
+                    it * getChiSquaredValue(
+                        confidenceLevel,
+                        1.0
+                    )
+                )
+            }
             return EstimatedPosition(measurement.position, xzAccuracyRadius, zAccuracyRadius)
         }
         else -> {
