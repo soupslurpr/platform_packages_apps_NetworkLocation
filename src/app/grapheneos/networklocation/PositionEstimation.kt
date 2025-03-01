@@ -121,7 +121,7 @@ private fun nonlinearLeastSquaresTrilateration(
 
     val observedDistances =
         measurements.map { rssiToDistance(it.measurement.rssi, it.pathLossExponent) }.toDoubleArray()
-    var computeZ = true
+    var trilaterateWithZ = true
     val positions =
         measurements.map {
             val position = it.measurement.position
@@ -132,17 +132,26 @@ private fun nonlinearLeastSquaresTrilateration(
                     position.z
                 )
             } else {
-                // don't compute z if any of our measurements don't have z
-                computeZ = false
+                // don't trilaterate with Z if any of our measurements don't have Z
+                trilaterateWithZ = false
                 doubleArrayOf(
                     position.x,
                     position.y
                 )
             }
         }.map {
-            if (computeZ) doubleArrayOf(it[0], it[1], it[2]) else doubleArrayOf(it[0], it[1])
+            if (trilaterateWithZ) doubleArrayOf(it[0], it[1], it[2]) else doubleArrayOf(
+                it[0],
+                it[1]
+            )
         }.toTypedArray()
-    val weights = computeMeasurementWeights(measurements, computeZ)
+    val fallbackZ = measurements.mapNotNull { it.measurement.position.z }.let {
+        if (it.isNotEmpty()) it.average() else null
+    }
+    val fallbackSigmaZ2 = measurements.mapNotNull { it.measurement.zPositionVariance }.let {
+        if (it.isNotEmpty()) it.average() else null
+    }
+    val weights = computeMeasurementWeights(measurements)
 
     // create weight matrix from weights array
     val weightMatrix = Array2DRowRealMatrix(weights.size, weights.size)
@@ -150,10 +159,10 @@ private fun nonlinearLeastSquaresTrilateration(
         weightMatrix.setEntry(i, i, weights[i])
     }
 
-    val model = TrilaterationFunction(positions, computeZ)
+    val model = TrilaterationFunction(positions, trilaterateWithZ)
 
-    val initialPoint = if (computeZ) {
-        doubleArrayOf(initialGuess.x, initialGuess.y, initialGuess.z!!)
+    val initialPoint = if (trilaterateWithZ) {
+        doubleArrayOf(initialGuess.x, initialGuess.y, initialGuess.z ?: fallbackZ!!)
     } else {
         doubleArrayOf(initialGuess.x, initialGuess.y)
     }
@@ -183,7 +192,7 @@ private fun nonlinearLeastSquaresTrilateration(
     val estimatedParameters = optimum.point.toArray()
     val x = estimatedParameters[0]
     val y = estimatedParameters[1]
-    val z = if (computeZ) estimatedParameters[2] else null
+    val z = if (trilaterateWithZ) estimatedParameters[2] else fallbackZ
 
     // estimate accuracy radius (confidence interval)
     val covariances = try {
@@ -193,7 +202,7 @@ private fun nonlinearLeastSquaresTrilateration(
     }
     val sigmaX2 = covariances[0][0]
     val sigmaY2 = covariances[1][1]
-    val sigmaZ2 = if (computeZ) covariances[2][2] else null
+    val sigmaZ2 = if (trilaterateWithZ) covariances[2][2] else fallbackSigmaZ2
     val sigmaXy = sqrt(sigmaX2 + sigmaY2)
     val sigmaZ = sigmaZ2?.let { sqrt(it) }
     val xyAccuracyRadius = sigmaXy * sqrt(getChiSquaredValue(confidenceLevel, 2.0))
@@ -211,19 +220,19 @@ private fun nonlinearLeastSquaresTrilateration(
  */
 private class TrilaterationFunction(
     private val positions: Array<DoubleArray>,
-    private val computeZ: Boolean
+    private val trilaterateWithZ: Boolean
 ) : MultivariateJacobianFunction {
     override fun value(point: RealVector): org.apache.commons.math3.util.Pair<RealVector, org.apache.commons.math3.linear.RealMatrix> {
         val x = point.toArray()
         val numMeasurements = positions.size
 
         val values = DoubleArray(numMeasurements)
-        val jacobian = Array(numMeasurements) { DoubleArray(if (computeZ) 3 else 2) }
+        val jacobian = Array(numMeasurements) { DoubleArray(if (trilaterateWithZ) 3 else 2) }
 
         for (i in 0 until numMeasurements) {
             val dx = x[0] - positions[i][0]
             val dy = x[1] - positions[i][1]
-            val dz = if (computeZ) x[2] - positions[i][2] else null
+            val dz = if (trilaterateWithZ) x[2] - positions[i][2] else null
             val distance = sqrt(
                 (dx * dx) + (dy * dy) + (dz?.times(dz) ?: 0.0)
             ) + 1e-12 // avoid division by zero
