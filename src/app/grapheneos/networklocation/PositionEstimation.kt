@@ -389,9 +389,7 @@ fun estimatePosition(
                     best == null || item.inliersSize > best.inliersSize -> item
                     item.inliersSize < best.inliersSize -> best
                     // item.inliersSize == best.inliersSize
-                    item.trilaterationResult.xyAccuracyRadius < best.trilaterationResult.xyAccuracyRadius && (item.trilaterationResult.zAccuracyRadius
-                        ?: Double.MAX_VALUE) <= (best.trilaterationResult.zAccuracyRadius
-                        ?: Double.MAX_VALUE) -> item
+                    item.trilaterationResult.xyAccuracyRadius < best.trilaterationResult.xyAccuracyRadius -> item
                     else -> best
                 }
             }
