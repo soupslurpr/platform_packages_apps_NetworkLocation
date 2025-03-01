@@ -74,20 +74,18 @@ private fun rssiVarianceToDistanceVariance(rssi: Double, pathLossExponent: Doubl
 
 private fun totalMeasurementVariance(
     measurement: Measurement,
-    pathLossExponent: Double,
-    computeZ: Boolean
+    pathLossExponent: Double
 ): Double {
     val distanceVariance = rssiVarianceToDistanceVariance(measurement.rssi, pathLossExponent)
-    return distanceVariance + (measurement.xyPositionVariance + if (computeZ) measurement.zPositionVariance
-        ?: 0.0 else 0.0)
+    return distanceVariance + measurement.xyPositionVariance + (measurement.zPositionVariance
+        ?: 0.0)
 }
 
 private fun computeMeasurementWeights(
-    measurements: List<MeasurementExt>,
-    computeZ: Boolean
+    measurements: List<MeasurementExt>
 ): DoubleArray {
     return measurements.map { entry ->
-        val variance = totalMeasurementVariance(entry.measurement, entry.pathLossExponent, computeZ)
+        val variance = totalMeasurementVariance(entry.measurement, entry.pathLossExponent)
         1.0 / variance
     }.toDoubleArray()
 }
@@ -273,9 +271,6 @@ private fun ransacTrilateration(
     for (combination in Combinations(numMeasurements, sampleSize)) {
         val sample = combination.map { measurements[it] }
 
-        val computeZ =
-            !sample.any { it.measurement.position.z == null || it.measurement.zPositionVariance == null }
-
         // use geometric median of sample positions as initial guess
         val initialGuess = geometricMedian(sample.map { it.measurement.position })
 
@@ -289,13 +284,13 @@ private fun ransacTrilateration(
         val inliers = measurements.filter { entry ->
             val dx = estimatedPosition.x - entry.measurement.position.x
             val dy = estimatedPosition.y - entry.measurement.position.y
-            val dz = if (computeZ) entry.measurement.position.z?.let { estimatedPosition.z!! - it }
-                ?: 0.0 else 0.0
+            val dz =
+                estimatedPosition.z?.let { entry.measurement.position.z?.let { estimatedPosition.z - it } }
+                    ?: 0.0
             val estimatedDistance = sqrt((dx * dx) + (dy * dy) + (dz * dz))
             val measuredDistance = rssiToDistance(entry.measurement.rssi, entry.pathLossExponent)
             val residual = abs(estimatedDistance - measuredDistance)
-            val variance =
-                totalMeasurementVariance(entry.measurement, entry.pathLossExponent, computeZ)
+            val variance = totalMeasurementVariance(entry.measurement, entry.pathLossExponent)
             val standardizedResidual = residual / sqrt(variance)
 
             val threshold = 2.0 // within 2 standard deviations
@@ -351,7 +346,7 @@ fun estimatePosition(
             val pathLossExponent = 3.0
 
             val xzAccuracyRadius = sqrt(
-                totalMeasurementVariance(measurement, pathLossExponent, false) * getChiSquaredValue(
+                totalMeasurementVariance(measurement, pathLossExponent) * getChiSquaredValue(
                     confidenceLevel,
                     2.0
                 )
