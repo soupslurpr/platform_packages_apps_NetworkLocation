@@ -100,11 +100,12 @@ class LocationReportingTask(private val provider: LocationProviderBase,
             return null
         }
 
+        val testAdd = 0.01
         // use the median coordinates of nearby APs for protection against around 50%
         // or less of them being in a wildly incorrect location
         val refGeoPoint = GeoPoint(
-            bestResults.map { it.positioningData.latitude }.median(),
-            bestResults.map { it.positioningData.longitude }.median(),
+            bestResults.map { it.positioningData.latitude }.median() + testAdd,
+            bestResults.map { it.positioningData.longitude }.median() + testAdd,
             bestResults.mapNotNull { it.positioningData.altitudeMeters }.let {
                 if (it.isNotEmpty()) it.average() else null
             }

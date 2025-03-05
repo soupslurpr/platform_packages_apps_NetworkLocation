@@ -1,0 +1,6 @@
+rust_ffi_shared {
+    name: "libmultilateration_native",
+    crate_name: "multilateration",
+    srcs: ["src/lib.rs"],
+    rustlibs: ["libjni", "liblog_rust", "libandroid_logger", "librand"],
+}

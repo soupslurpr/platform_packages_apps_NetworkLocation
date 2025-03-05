@@ -1,0 +1,7 @@
+java_library {
+    name: "libmultilateration_jni",
+    sdk_version: "system_current",
+    min_sdk_version: "system_current",
+    srcs: ["src/**/*.kt"],
+    required: ["libmultilateration_native"],
+}

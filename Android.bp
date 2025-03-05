@@ -13,11 +13,14 @@ android_app {
         "androidx.core_core",
         "network-location-proto",
         "apache-commons-math3",
+        "libmultilateration_jni",
     ],
 
     libs: [
         "com.android.location.provider.impl",
     ],
+
+    jni_libs: ["libmultilateration_native"],
 
     required: [
         "etc_permissions_app.grapheneos.networklocation.xml",
