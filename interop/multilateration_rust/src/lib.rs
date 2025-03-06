@@ -4,7 +4,7 @@
 
 use android_logger::Config;
 use jni::JNIEnv;
-use jni::objects::{JClass, JObjectArray};
+use jni::objects::{JClass, JObject, JObjectArray};
 use jni::sys::jobject;
 use log::{debug, error, info};
 use rand::{Rng, rngs::SmallRng, SeedableRng};
@@ -95,21 +95,41 @@ pub extern "system" fn Java_app_grapheneos_networklocation_interop_multilaterati
             .unwrap()
             .d()
             .unwrap();
-        let z = env
-            .call_method(&pos_obj, "getZ", "()D", &[])
+        let z_jobj = env
+            .call_method(&pos_obj, "getZ", "()Ljava/lang/Double;", &[])
             .unwrap()
-            .d()
+            .l()
             .unwrap();
+        let z = if z_jobj.is_null() {
+            None
+        } else {
+            Some(
+                env.call_method(z_jobj, "doubleValue", "()D", &[])
+                    .unwrap()
+                    .d()
+                    .unwrap(),
+            )
+        };
         let xy_variance = env
             .call_method(&pos_obj, "getXyVariance", "()D", &[])
             .unwrap()
             .d()
             .unwrap();
-        let z_variance = env
-            .call_method(&pos_obj, "getZVariance", "()D", &[])
+        let zv_jobj = env
+            .call_method(&pos_obj, "getZVariance", "()Ljava/lang/Double;", &[])
             .unwrap()
-            .d()
+            .l()
             .unwrap();
+        let z_variance = if zv_jobj.is_null() {
+            None
+        } else {
+            Some(
+                env.call_method(zv_jobj, "doubleValue", "()D", &[])
+                    .unwrap()
+                    .d()
+                    .unwrap(),
+            )
+        };
 
         let pos = Position {
             x,
@@ -123,22 +143,37 @@ pub extern "system" fn Java_app_grapheneos_networklocation_interop_multilaterati
             position: pos,
             distance,
             probability: 0.0, // will be computed in the algorithm
+            real_z: z.is_some(),
         });
     }
 
     let estimated_position = multilateration(&mut measurements_converted);
 
     let pos_class = env.find_class(position_class_path).unwrap();
+
+    let z_jobject = match estimated_position.z {
+        Some(val) => env
+            .new_object("java/lang/Double", "(D)V", &[val.into()])
+            .unwrap(),
+        None => JObject::null(),
+    };
+    let zv_jobject = match estimated_position.z_variance {
+        Some(val) => env
+            .new_object("java/lang/Double", "(D)V", &[val.into()])
+            .unwrap(),
+        None => JObject::null(),
+    };
+
     let ret_obj = env
         .new_object(
             pos_class,
-            "(DDDDD)V",
+            "(DDLjava/lang/Double;DLjava/lang/Double;)V",
             &[
                 estimated_position.x.into(),
                 estimated_position.y.into(),
-                estimated_position.z.into(),
+                (&z_jobject).into(),
                 estimated_position.xy_variance.into(),
-                estimated_position.z_variance.into(),
+                (&zv_jobject).into(),
             ],
         )
         .unwrap();
@@ -156,11 +191,11 @@ pub struct Position {
     /// y
     pub y: f64,
     /// z
-    pub z: f64,
+    pub z: Option<f64>,
     /// variance in xy plane (1-sigma²)
     pub xy_variance: f64,
     /// variance in z direction (1-sigma²)
-    pub z_variance: f64,
+    pub z_variance: Option<f64>,
 }
 
 impl Sub for Position {
@@ -170,7 +205,7 @@ impl Sub for Position {
         Self {
             x: self.x - other.x,
             y: self.y - other.y,
-            z: self.z - other.z,
+            z: Some(self.z.unwrap_or(0.0) - other.z.unwrap_or(0.0)),
             xy_variance: other.xy_variance,
             z_variance: other.z_variance,
         }
@@ -188,6 +223,8 @@ pub struct Measurement {
     pub distance: f64,
     /// probability
     pub probability: f64,
+    /// real z
+    pub real_z: bool,
 }
 
 /**
@@ -196,15 +233,22 @@ pub struct Measurement {
 pub fn multilateration(measurements: &mut [Measurement]) -> Position {
     let mut random = SmallRng::seed_from_u64(2);
 
-    // TODO: make a better initial guess
+    // TODO: make better initial guesses
     // initial guess
     let mut estimated_position = Position {
         x: random.gen_range(-100.0..100.0),
         y: random.gen_range(-100.0..100.0),
-        z: random.gen_range(-100.0..100.0),
+        z: Some(random.gen_range(-100.0..100.0)),
         xy_variance: random.gen_range(0.0..100.0),
-        z_variance: random.gen_range(0.0..100.0),
+        z_variance: Some(random.gen_range(0.0..100.0)),
     };
+    for measurement in measurements.iter_mut() {
+        if measurement.position.z.is_none() || measurement.position.z_variance.is_none() {
+            measurement.position.z = Some(random.gen_range(-100.0..100.0));
+            measurement.position.z_variance = Some(200.0);
+            measurement.real_z = false;
+        }
+    }
 
     // TODO: determine if the learning rates are useful when enabled (not 1.0)
     //  they might not be good because it causes us to need more iterations
@@ -229,7 +273,13 @@ pub fn multilateration(measurements: &mut [Measurement]) -> Position {
         for measurement in measurements.iter_mut() {
             let x_delta = estimated_position.x - measurement.position.x;
             let y_delta = estimated_position.y - measurement.position.y;
-            let z_delta = estimated_position.z - measurement.position.z;
+            let z_delta = estimated_position
+                .z
+                .expect("estimated position z should be set when making initial guess")
+                - measurement
+                .position
+                .z
+                .expect("measurement position z should be set when making initial guess");
 
             let estimated_distance = (x_delta.powi(2) + y_delta.powi(2) + z_delta.powi(2)).sqrt();
             let distance_delta = estimated_distance - measurement.distance;
@@ -241,40 +291,77 @@ pub fn multilateration(measurements: &mut [Measurement]) -> Position {
         }
 
         // M step: adjust estimated position to fit the points that are most probable for them
-        let mut delta_update = Position::default();
+        let mut delta_update_user = Position {
+            x: 0.0,
+            y: 0.0,
+            z: Some(0.0),
+            ..Default::default()
+        };
         let mut total_weight_xy = 0.0;
         let mut total_weight_z = 0.0;
 
-        for measurement in measurements.iter() {
+        for measurement in measurements.iter_mut() {
             let x_delta = estimated_position.x - measurement.position.x;
             let y_delta = estimated_position.y - measurement.position.y;
-            let z_delta = estimated_position.z - measurement.position.z;
+            let z_delta = estimated_position
+                .z
+                .expect("estimated position z should be set when making initial guess")
+                - measurement
+                .position
+                .z
+                .expect("measurement position z should be set when making initial guess");
 
             let estimated_distance = (x_delta.powi(2) + y_delta.powi(2) + z_delta.powi(2)).sqrt();
             // distance factor scales the correction from the measurement's reported distance
             let distance_factor = if estimated_distance > 0.0 {
-                measurement.distance / estimated_distance
+                measurement.distance / estimated_distance - 1.0
             } else {
                 0.0
             };
 
             let weight_xy = measurement.probability / measurement.position.xy_variance;
-            let weight_z = measurement.probability / measurement.position.z_variance;
+            let weight_z = measurement.probability
+                / measurement.position.z_variance.expect(
+                "measurement position z variance should be set when making initial guess",
+            );
 
-            delta_update.x += x_delta * (distance_factor - 1.0) * weight_xy;
-            delta_update.y += y_delta * (distance_factor - 1.0) * weight_xy;
-            delta_update.z += z_delta * (distance_factor - 1.0) * weight_z;
+            delta_update_user.x += x_delta * (distance_factor) * weight_xy;
+            delta_update_user.y += y_delta * (distance_factor) * weight_xy;
+            delta_update_user.z = Some(
+                delta_update_user
+                    .z
+                    .expect("delta update z should not be None")
+                    + z_delta * distance_factor * weight_z,
+            );
 
             total_weight_xy += weight_xy;
             total_weight_z += weight_z;
+
+            if !measurement.real_z {
+                let anchor_z = measurement
+                    .position
+                    .z
+                    .expect("measurement position z should be set when making initial guess");
+                let anchor_z_delta = -z_delta * distance_factor * weight_z;
+                measurement.position.z = Some(anchor_z + learning_rate * anchor_z_delta);
+            }
         }
 
         if total_weight_xy != 0.0 {
-            estimated_position.x += learning_rate * delta_update.x / total_weight_xy;
-            estimated_position.y += learning_rate * delta_update.y / total_weight_xy;
+            estimated_position.x += learning_rate * delta_update_user.x / total_weight_xy;
+            estimated_position.y += learning_rate * delta_update_user.y / total_weight_xy;
         }
         if total_weight_z != 0.0 {
-            estimated_position.z += learning_rate * delta_update.z / total_weight_z;
+            estimated_position.z = Some(
+                estimated_position
+                    .z
+                    .expect("estimated position z should be set when making initial guess")
+                    + learning_rate
+                    * delta_update_user
+                    .z
+                    .expect("delta update z should not be None")
+                    / total_weight_z,
+            );
         }
 
         let mut sum_probability = 0.0;
@@ -283,7 +370,13 @@ pub fn multilateration(measurements: &mut [Measurement]) -> Position {
         for measurement in measurements.iter() {
             let error_x = estimated_position.x - measurement.position.x;
             let error_y = estimated_position.y - measurement.position.y;
-            let error_z = estimated_position.z - measurement.position.z;
+            let error_z = estimated_position
+                .z
+                .expect("estimated position z should be set when making initial guess")
+                - measurement
+                .position
+                .z
+                .expect("measurement position z should be set when making initial guess");
 
             weighted_error_xy +=
                 measurement.probability * ((error_x.powi(2) + error_y.powi(2)) / 2.0);
@@ -297,11 +390,22 @@ pub fn multilateration(measurements: &mut [Measurement]) -> Position {
 
             estimated_position.xy_variance = variance_learning_rate * new_xy_variance
                 + (1.0 - variance_learning_rate) * estimated_position.xy_variance;
-            estimated_position.z_variance = variance_learning_rate * new_z_variance
-                + (1.0 - variance_learning_rate) * estimated_position.z_variance;
+            estimated_position.z_variance = Some(
+                variance_learning_rate * new_z_variance
+                    + (1.0 - variance_learning_rate)
+                    * estimated_position.z_variance.expect(
+                    "estimated position z variance should be set when making initial guess",
+                ),
+            );
         }
 
-        if delta_update.x < tolerance && delta_update.y < tolerance && delta_update.z < tolerance {
+        let dx = delta_update_user.x.abs();
+        let dy = delta_update_user.y.abs();
+        let dz = delta_update_user
+            .z
+            .expect("delta update user should be never be None")
+            .abs();
+        if dx < tolerance && dy < tolerance && dz < tolerance {
             break;
         }
     }
@@ -332,16 +436,19 @@ mod tests {
         let z_variance = random.gen_range(10.0..100.0);
         let distance = ((x - real_position.x).powi(2)
             + (y - real_position.y).powi(2)
-            + (z - real_position.z).powi(2))
+            + (z - real_position
+            .z
+            .expect("real position z should not be None when testing"))
+            .powi(2))
             .sqrt();
 
         Measurement {
             position: Position {
                 x,
                 y,
-                z,
+                z: Some(z),
                 xy_variance,
-                z_variance,
+                z_variance: Some(z_variance),
             },
             distance,
             ..Default::default()
@@ -354,9 +461,24 @@ mod tests {
         Position {
             x: deltas.clone().map(|p| p.x).sum::<f64>() / deltas.len() as f64,
             y: deltas.clone().map(|p| p.y).sum::<f64>() / deltas.len() as f64,
-            z: deltas.clone().map(|p| p.z).sum::<f64>() / deltas.len() as f64,
+            z: Some(
+                deltas
+                    .clone()
+                    .map(|p| p.z.expect("estimated position z should never be None"))
+                    .sum::<f64>()
+                    / deltas.len() as f64,
+            ),
             xy_variance: deltas.clone().map(|p| p.xy_variance).sum::<f64>() / deltas.len() as f64,
-            z_variance: deltas.clone().map(|p| p.z_variance).sum::<f64>() / deltas.len() as f64,
+            z_variance: Some(
+                deltas
+                    .clone()
+                    .map(|p| {
+                        p.z_variance
+                            .expect("estimated position z should never be None")
+                    })
+                    .sum::<f64>()
+                    / deltas.len() as f64,
+            ),
         }
     }
 
@@ -374,9 +496,9 @@ mod tests {
             let real_position = Position {
                 x: random.gen_range(-200.0..200.0),
                 y: random.gen_range(-200.0..200.0),
-                z: random.gen_range(-200.0..200.0),
+                z: Some(random.gen_range(-200.0..200.0)),
                 xy_variance: random.gen_range(0.0..100.0),
-                z_variance: random.gen_range(0.0..100.0),
+                z_variance: Some(random.gen_range(0.0..100.0)),
             };
 
             let mut measurements = vec![];
@@ -417,9 +539,9 @@ mod tests {
             let real_position = Position {
                 x: random.gen_range(-200.0..200.0),
                 y: random.gen_range(-200.0..200.0),
-                z: random.gen_range(-200.0..200.0),
+                z: Some(random.gen_range(-200.0..200.0)),
                 xy_variance: random.gen_range(0.0..100.0),
-                z_variance: random.gen_range(0.0..100.0),
+                z_variance: Some(random.gen_range(0.0..100.0)),
             };
 
             let mut measurements = vec![];
@@ -433,9 +555,9 @@ mod tests {
                     &mut random,
                 );
 
-                // TODO: set it to unknown once it's supported
                 if i < 7 {
-                    measurement.position.z = 0.0;
+                    measurement.position.z = None;
+                    measurement.position.z_variance = None;
                 }
 
                 measurements.push(measurement);

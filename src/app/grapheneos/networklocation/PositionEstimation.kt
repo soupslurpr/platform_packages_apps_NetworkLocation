@@ -1,6 +1,12 @@
 package app.grapheneos.networklocation
 
 import app.grapheneos.networklocation.interop.multilateration.Multilateration
+import app.grapheneos.networklocation.interop.multilateration.Position
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import org.apache.commons.math3.distribution.ChiSquaredDistribution
 import org.apache.commons.math3.exception.ConvergenceException
 import org.apache.commons.math3.exception.TooManyEvaluationsException
@@ -377,31 +383,62 @@ fun estimatePosition(
             return EstimatedPosition(measurement.position, xzAccuracyRadius, zAccuracyRadius)
         }
         else -> {
-            val estimatedPosition = Multilateration.main(
-                measurements.map {
-                    app.grapheneos.networklocation.interop.multilateration.Measurement(
-                        app.grapheneos.networklocation.interop.multilateration.Position(
-                            it.position.x,
-                            it.position.y,
-                            // TODO: put real value and let it be null if it is so the algorithm can
-                            //  estimate it
-                            0.0,
-                            it.xyPositionVariance,
-                            it.zPositionVariance ?: 10.0,
-                        ),
-                        rssiToDistance(it.rssi, 3.0),
-                    )
-                }.toTypedArray()
+            val results: List<Position> = runBlocking(Dispatchers.Default) {
+                val tasks = mutableListOf<Deferred<Position>>()
+                for (pathLossExponent in (20..59 step 3).map { it.toDouble() / 10 }) {
+                    val result = async {
+                        Multilateration.main(
+                            measurements.map {
+                                app.grapheneos.networklocation.interop.multilateration.Measurement(
+                                    Position(
+                                        it.position.x,
+                                        it.position.y,
+                                        it.position.z,
+                                        it.xyPositionVariance,
+                                        it.zPositionVariance,
+                                    ),
+                                    rssiToDistance(it.rssi, pathLossExponent),
+                                    it.position.z != null,
+                                )
+                            }.toTypedArray()
+                        )
+//                        ransacTrilateration(
+//                            measurements.map { MeasurementExt(it, pathLossExponent) }
+//                                .take(MAX_MEASUREMENTS_FOR_RANSAC_TRILATERATION),
+//                            minInliers = if (measurements.size == 2) 2 else 3,
+//                            confidenceLevel = confidenceLevel,
+//                            // TODO: re-enable once it's optimized enough
+//                            trilaterateWithZ = false
+//                        )
+                    }
+                    tasks.add(result)
+                }
+                tasks.awaitAll()
+            }
+
+//            val bestResult: Position = results.reduce { best, item ->
+//                when {
+//                    item.xyVariance < best.xyVariance && item.zVariance!! < best.zVariance!! -> item
+//                    else -> best
+//                }
+//            }
+            val bestResult = Position(
+                results.map { it.x }.average(),
+                results.map { it.y }.average(),
+                results.mapNotNull { it.z }.let { if (it.isNotEmpty()) it.average() else null },
+                results.map { it.xyVariance }.average(),
+                results.mapNotNull { it.zVariance }
+                    .let { if (it.isNotEmpty()) it.average() else null },
             )
 
             return EstimatedPosition(
                 Point(
-                    estimatedPosition.x,
-                    estimatedPosition.y,
-                    estimatedPosition.z,
+                    bestResult.x,
+                    bestResult.y,
+                    bestResult.z,
                 ),
-                sqrt(estimatedPosition.xyVariance),
-                sqrt(estimatedPosition.zVariance),
+                sqrt(bestResult.xyVariance),
+                bestResult.zVariance?.let { sqrt(it) },
             )
 //            val results: List<RansacTrilaterationResult?> = runBlocking(Dispatchers.Default) {
 //                val tasks = mutableListOf<Deferred<RansacTrilaterationResult?>>()
