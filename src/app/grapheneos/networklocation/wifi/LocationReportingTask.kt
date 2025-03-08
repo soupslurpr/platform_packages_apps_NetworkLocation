@@ -92,13 +92,13 @@ class LocationReportingTask(private val provider: LocationProviderBase,
                 continue
             }
             bestResults.add(PositionedScanResult(scanResult, positioningData))
-            if (bestResults.size == MAX_MEASUREMENTS_FOR_RANSAC_TRILATERATION) {
-                break
-            }
         }
         if (bestResults.isEmpty()) {
             return null
         }
+
+        // TODO: filter out measurements by taking integer parts of both latitude and longitude and
+        //  remove ones that don't fit the majority
 
         // use the median coordinates of nearby APs for protection against around 50%
         // or less of them being in a wildly incorrect location

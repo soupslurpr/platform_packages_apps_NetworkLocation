@@ -398,18 +398,10 @@ fun estimatePosition(
                                         it.zPositionVariance,
                                     ),
                                     rssiToDistance(it.rssi, pathLossExponent),
-                                    it.position.z != null,
+                                    it.position.z != null && it.zPositionVariance != null,
                                 )
                             }.toTypedArray()
                         )
-//                        ransacTrilateration(
-//                            measurements.map { MeasurementExt(it, pathLossExponent) }
-//                                .take(MAX_MEASUREMENTS_FOR_RANSAC_TRILATERATION),
-//                            minInliers = if (measurements.size == 2) 2 else 3,
-//                            confidenceLevel = confidenceLevel,
-//                            // TODO: re-enable once it's optimized enough
-//                            trilaterateWithZ = false
-//                        )
                     }
                     tasks.add(result)
                 }
