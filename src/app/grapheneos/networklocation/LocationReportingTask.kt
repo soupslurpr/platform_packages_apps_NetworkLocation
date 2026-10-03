@@ -37,7 +37,9 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.runBlocking
 
 private const val TAG = "LocationReportingTask"
@@ -55,7 +57,7 @@ class LocationReportingTask(
         val interval = max(1000, request.intervalMillis)
         verboseLog(TAG) { "started, interval: $interval ms" }
         while (true) {
-
+            currentCoroutineContext().ensureActive()
             val start = SystemClock.elapsedRealtime()
             step()
             val stepDuration = SystemClock.elapsedRealtime() - start
@@ -86,14 +88,15 @@ class LocationReportingTask(
         }
         if (scanResults != null) {
             val location = estimateLocationWifi(scanResults)
-
+            // Blocking lookup/native work may have completed after cancellation.
+            currentCoroutineContext().ensureActive()
             verboseLog(TAG) { "estimateLocationWifi returned $location" }
             if (location != null) {
                 provider.reportLocation(location)
                 return
             }
         }
-
+        currentCoroutineContext().ensureActive()
         verboseLog(TAG) { "falling back to cell-tower-based location" }
         val cellInfos = try {
             cellScanner.scan(request.workSource)
@@ -109,7 +112,7 @@ class LocationReportingTask(
             }
         }
         val location = estimateLocationCell(cellInfos)
-
+        currentCoroutineContext().ensureActive()
         verboseLog(TAG) { "estimateLocationCell returned $location" }
         if (location != null) {
             provider.reportLocation(location)
